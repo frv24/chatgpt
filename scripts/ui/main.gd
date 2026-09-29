@@ -12,7 +12,7 @@ extends Control
 ##
 ## Toda la interfaz se crea desde código para que puedas leerla de arriba abajo.
 
-enum Fase { CHARLESTON, TURNO_RIVAL, ROBAR, DESCARTAR, FIN }
+enum Fase { CHARLESTON, TURNO_RIVAL, ROBAR, DESCARTAR, DECIDIR_CANTO, FIN }
 
 const COLOR_FONDO := Color("0f5132")  # verde tapete
 const ARCHIVO_PROGRESO := "user://progreso.cfg"
@@ -37,6 +37,8 @@ var objetivo_elegido := false
 var seleccion: Array[int] = []
 ## Ids de las fichas recién recibidas o robadas (se pintan en amarillo).
 var ids_nuevas: Array[int] = []
+## Mientras decides si cantar un descarte: {"rivales": cantos de los rivales, "mio": evaluación}.
+var _canto_pendiente: Dictionary = {}
 
 # Lecciones
 var _cola_lecciones: Array[String] = []
@@ -60,6 +62,12 @@ var _boton_pasar: Button
 var _boton_sugerir: Button
 var _boton_segundo_si: Button
 var _boton_segundo_no: Button
+var _boton_mahjong: Button
+var _boton_cantar: Button
+var _boton_no_cantar: Button
+var _boton_cambiar_comodin: Button
+var _fila_expuestas: HBoxContainer
+var _expuestas_rivales: VBoxContainer
 var _timer_rivales: Timer
 var _capa_leccion: Control
 var _leccion: Dictionary  # etiquetas de la ventana de lección
@@ -182,11 +190,18 @@ func _al_terminar_timer_rivales() -> void:
 		_timer_rivales.start(pausa_rivales)
 		return
 	var r := partida.jugar_turno_rival()
-	if r["descartada"] != null:
-		_mostrar_mensaje("%s descartó: %s." % [partida.nombre(r["jugador"]), r["descartada"].nombre()])
-		if partida.descartes.size() >= 3:
-			mostrar_leccion("descartes_rivales")
-	_siguiente_turno()
+	var texto := ""
+	if r["cambios"] > 0:
+		texto = "%s cambió una ficha por un comodín expuesto. " % partida.nombre(r["jugador"])
+		mostrar_leccion("cambiar_comodin")
+	if r["descartada"] == null:
+		_mostrar_mensaje(texto)
+		_siguiente_turno()
+		return
+	_mostrar_mensaje(texto + "%s descartó: %s." % [partida.nombre(r["jugador"]), r["descartada"].nombre()])
+	if partida.descartes.size() >= 3:
+		mostrar_leccion("descartes_rivales")
+	_tras_descarte()
 
 
 func robar() -> void:
@@ -200,6 +215,9 @@ func robar() -> void:
 	ids_nuevas.append(nueva.id)
 	fase = Fase.DESCARTAR
 	_mostrar_mensaje("Has robado: %s. Toca la ficha que quieras descartar y pulsa «Descartar»." % nueva.nombre())
+	if not partida.cambios_de_comodin(0).is_empty():
+		_agregar_mensaje("¡Puedes cambiar una ficha por un comodín expuesto!")
+		mostrar_leccion("cambiar_comodin")
 	_refrescar()
 
 
@@ -216,7 +234,102 @@ func descartar() -> void:
 	ids_nuevas.clear()
 	var aviso := " Cuidado: ¡los comodines casi nunca se descartan!" if ficha.es_comodin() else ""
 	_mostrar_mensaje("Descartaste: %s.%s" % [ficha.nombre(), aviso])
-	_siguiente_turno()
+	_tras_descarte()
+
+
+## En tu turno (antes de descartar), cambia tu ficha por un comodín de un grupo expuesto.
+func cambiar_comodin() -> void:
+	var opciones := partida.cambios_de_comodin(0)
+	if fase != Fase.DESCARTAR or opciones.is_empty():
+		return
+	var opcion: Dictionary = opciones[0]
+	var comodin := partida.cambiar_comodin(0, opcion)
+	ids_nuevas.clear()
+	ids_nuevas.append(comodin.id)
+	seleccion.clear()
+	var de_quien := "tu grupo" if opcion["dueno"] == 0 else "el grupo de " + partida.nombre(opcion["dueno"])
+	_mostrar_mensaje("Pusiste tu %s en %s y te llevaste el comodín." % [opcion["ficha"].nombre(), de_quien])
+	if partida.comprobar_mahjong():
+		_terminar()
+		return
+	_agregar_mensaje("Ahora descarta una ficha.")
+	_refrescar()
+
+
+# =============================================================================
+#  CANTAR DESCARTES
+# =============================================================================
+
+## Después de cada descarte: ¿alguien quiere la ficha?
+func _tras_descarte() -> void:
+	var ultimo: Dictionary = partida.descartes.back()
+	var cantos_rivales := partida.cantos_de_rivales()
+	var mio := {}
+	if ultimo["jugador"] != 0:
+		var ev := partida.evaluar_canto(0, ultimo["ficha"])
+		if ev["mahjong"] or ev["cant"] > 0:
+			mio = ev
+	if mio.is_empty():
+		_resolver_cantos(cantos_rivales, false)
+		return
+
+	# Te sirve la ficha: te preguntamos (los rivales esperan tu decisión).
+	_canto_pendiente = {"rivales": cantos_rivales, "mio": mio}
+	fase = Fase.DECIDIR_CANTO
+	var ficha: Ficha = ultimo["ficha"]
+	if mio["mahjong"]:
+		_agregar_mensaje("¡Con esa ficha completas tu mano! Pulsa «¡Mahjong!».")
+	else:
+		_agregar_mensaje("¡Puedes cantarla! Formarías un %s de %s y a «%s» le faltarían %d en vez de %d." % [
+			Partida.NOMBRE_GRUPO[mio["cant"]], ficha.nombre(), mio["mano"], mio["faltan_despues"], mio["faltan_antes"]])
+	mostrar_leccion("cantar")
+	_refrescar()
+
+
+## Tu respuesta: "mahjong", "exponer" o "pasar".
+func decidir_canto(respuesta: String) -> void:
+	if fase != Fase.DECIDIR_CANTO:
+		return
+	var cantos: Array[Dictionary] = _canto_pendiente["rivales"].duplicate()
+	var mio: Dictionary = _canto_pendiente["mio"]
+	if respuesta == "mahjong" and mio["mahjong"]:
+		cantos.append({"jugador": 0, "mahjong": true, "cant": 0})
+	elif respuesta == "exponer" and mio["cant"] > 0:
+		cantos.append({"jugador": 0, "mahjong": false, "cant": mio["cant"]})
+	_canto_pendiente = {}
+	_mostrar_mensaje("")
+	_resolver_cantos(cantos, respuesta != "pasar")
+
+
+## Decide quién se queda el descarte (si alguien lo quiere) y sigue la partida.
+func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
+	var elegido := partida.elegir_canto(cantos)
+	if elegido.is_empty():
+		_siguiente_turno()
+		return
+	var jugador: int = elegido["jugador"]
+	var ficha := partida.cantar(jugador, elegido["cant"], elegido["mahjong"])
+	seleccion.clear()
+	ids_nuevas.clear()
+	if yo_la_queria and jugador != 0:
+		_agregar_mensaje("%s también la quería y tenía preferencia (%s)." % [
+			partida.nombre(jugador), "hacía Mahjong" if elegido["mahjong"] else "está antes en el turno"])
+	if partida.terminada:
+		_terminar()
+		return
+
+	var grupo: String = Partida.NOMBRE_GRUPO[elegido["cant"]]
+	if jugador == 0:
+		ids_nuevas.append(ficha.id)
+		fase = Fase.DESCARTAR
+		_agregar_mensaje("Cantaste %s: expones un %s. Ahora descarta una ficha (sin robar)." % [ficha.nombre(), grupo])
+		mostrar_leccion("exponer")
+		mostrar_leccion("manos_ocultas")
+		_refrescar()
+	else:
+		_agregar_mensaje("%s cantó %s y expone un %s." % [partida.nombre(jugador), ficha.nombre(), grupo])
+		mostrar_leccion("exponer")
+		_siguiente_turno()
 
 
 func _terminar() -> void:
@@ -239,12 +352,13 @@ func _terminar() -> void:
 ## Selecciona las fichas que el asesor recomienda soltar y explica por qué.
 func sugerir() -> void:
 	var cantidad := 1 if fase == Fase.DESCARTAR else Charleston.FICHAS_POR_PASE
-	var sugeridas := Asesor.fichas_que_sobran(mano, manos_tarjeta, cantidad)
+	var sugeridas := Asesor.fichas_que_sobran(mano, manos_tarjeta, cantidad, partida.expuestas[0])
 	seleccion.clear()
 	for f in sugeridas:
 		seleccion.append(f.id)
 	var boton := "«Descartar»" if fase == Fase.DESCARTAR else "«Pasar»"
-	_mostrar_mensaje("%s Pulsa %s si estás de acuerdo." % [Asesor.explicar(sugeridas, mano, manos_tarjeta), boton])
+	_mostrar_mensaje("%s Pulsa %s si estás de acuerdo." % [
+		Asesor.explicar(sugeridas, mano, manos_tarjeta, partida.expuestas[0]), boton])
 	_refrescar_mano()
 
 
@@ -313,6 +427,8 @@ func _leccion_del_momento() -> String:
 			return "charleston_direcciones"
 		Fase.FIN:
 			return "muro_vacio" if partida.ganador == -1 else "mahjong"
+		Fase.DECIDIR_CANTO:
+			return "cantar"
 	return "turnos"
 
 
@@ -372,6 +488,9 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 	elif fase == Fase.TURNO_RIVAL:
 		_mostrar_mensaje("Espera: es el turno de %s." % partida.nombre(partida.turno))
 		return
+	elif fase == Fase.DECIDIR_CANTO:
+		_mostrar_mensaje("Primero decide si cantas el descarte o no.")
+		return
 	else:
 		_mostrar_mensaje(fv.ficha.nombre() + ". Puedes arrastrar las fichas para ordenarlas a tu gusto.")
 		return
@@ -415,16 +534,23 @@ func _refrescar_botones() -> void:
 	_boton_pasar.visible = _pasando_fichas()
 	_boton_segundo_si.visible = pregunta
 	_boton_segundo_no.visible = pregunta
-	_boton_robar.visible = not en_charleston
-	_boton_descartar.visible = not en_charleston
+	var decidiendo := fase == Fase.DECIDIR_CANTO
+	_boton_mahjong.visible = decidiendo and _canto_pendiente["mio"]["mahjong"]
+	_boton_cantar.visible = decidiendo and _canto_pendiente["mio"]["cant"] > 0
+	if _boton_cantar.visible:
+		_boton_cantar.text = "Cantar " + Partida.NOMBRE_GRUPO[_canto_pendiente["mio"]["cant"]]
+	_boton_no_cantar.visible = decidiendo
+	_boton_robar.visible = not en_charleston and not decidiendo
+	_boton_descartar.visible = not en_charleston and not decidiendo
 	_boton_robar.disabled = fase != Fase.ROBAR
 	_boton_descartar.disabled = fase != Fase.DESCARTAR
+	_boton_cambiar_comodin.visible = fase == Fase.DESCARTAR and not partida.cambios_de_comodin(0).is_empty()
 	_boton_sugerir.disabled = not (_pasando_fichas() or fase == Fase.DESCARTAR)
 
 
 func _refrescar_tarjeta() -> void:
 	# Ordena todas las manos de la más cercana a la más lejana.
-	_analisis_lista = Validador.manos_mas_cercanas(mano, manos_tarjeta, manos_tarjeta.size())
+	_analisis_lista = Validador.manos_mas_cercanas(mano, manos_tarjeta, manos_tarjeta.size(), partida.expuestas[0])
 	if not objetivo_elegido:
 		objetivo = _analisis_lista[0]["mano"]
 
@@ -432,7 +558,11 @@ func _refrescar_tarjeta() -> void:
 	for i in _analisis_lista.size():
 		var a := _analisis_lista[i]
 		var texto := "%s   %s" % [a["mano"]["nombre"], a["mano"]["patron"]]
-		if _interruptor_consejos.button_pressed:
+		if a["mano"]["oculta"]:
+			texto += "   (oculta)"
+		if a["faltan"] == Validador.IMPOSIBLE:
+			texto = "No posible · " + texto
+		elif _interruptor_consejos.button_pressed:
 			texto = "Faltan %d · %s" % [a["faltan"], texto]
 		_lista_tarjeta.add_item(texto)
 		if a["mano"]["nombre"] == objetivo["nombre"]:
@@ -451,7 +581,7 @@ func _refrescar_mano() -> void:
 	var consejos := _interruptor_consejos.button_pressed
 	var ids_utiles: Array[int] = []
 	if consejos:
-		ids_utiles = Validador.ids_utiles(mano, Validador.analizar(mano, objetivo))
+		ids_utiles = Validador.ids_utiles(mano, Validador.analizar(mano, objetivo, partida.expuestas[0]))
 
 	for ficha in mano:
 		var fv := FichaVisual.new(ficha)
@@ -463,16 +593,43 @@ func _refrescar_mano() -> void:
 		fv.soltada_encima.connect(_al_soltar_ficha)
 		_fila_mano.add_child(fv)
 
+	# Tus grupos expuestos, encima de la mano.
+	for hijo in _fila_expuestas.get_children():
+		hijo.queue_free()
+	_fila_expuestas.visible = not partida.expuestas[0].is_empty()
+	if _fila_expuestas.visible:
+		var etiqueta := Label.new()
+		etiqueta.text = "Tus grupos expuestos:"
+		_fila_expuestas.add_child(etiqueta)
+		for g in partida.expuestas[0]:
+			_fila_expuestas.add_child(_grupo_pequeno(g))
+
 
 ## El panel de la izquierda muestra los pasos del Charleston o, al jugar, los descartes.
 func _refrescar_panel_izquierdo() -> void:
 	var en_charleston := fase == Fase.CHARLESTON
 	_texto_charleston.visible = en_charleston
 	_zona_descartes.visible = not en_charleston
+	_expuestas_rivales.visible = not en_charleston
 	if en_charleston:
 		_titulo_izquierda.text = "Charleston: intercambio de fichas"
 		_texto_charleston.text = _texto_pasos_charleston()
 		return
+
+	# Grupos expuestos de los rivales (una fila por rival que tenga alguno).
+	for hijo in _expuestas_rivales.get_children():
+		hijo.queue_free()
+	for j in range(1, 4):
+		if partida.expuestas[j].is_empty():
+			continue
+		var fila := HBoxContainer.new()
+		var nombre := Label.new()
+		nombre.text = partida.nombre(j) + ":"
+		nombre.custom_minimum_size.x = 150
+		fila.add_child(nombre)
+		for g in partida.expuestas[j]:
+			fila.add_child(_grupo_pequeno(g))
+		_expuestas_rivales.add_child(fila)
 
 	for hijo in _fichas_descartadas.get_children():
 		hijo.queue_free()
@@ -481,6 +638,8 @@ func _refrescar_panel_izquierdo() -> void:
 		_titulo_izquierda.text = "Mano ganadora de %s: «%s»" % [
 			partida.nombre(partida.ganador), partida.mano_ganadora["nombre"]]
 		var ganadora: Array[Ficha] = partida.manos[partida.ganador].duplicate()
+		for g in partida.expuestas[partida.ganador]:
+			ganadora.append_array(g["fichas"])
 		ganadora.sort_custom(func(a: Ficha, b: Ficha): return a.orden() < b.orden())
 		for ficha in ganadora:
 			_fichas_descartadas.add_child(_ficha_pequena(ficha, ""))
@@ -511,6 +670,26 @@ func _ficha_pequena(ficha: Ficha, etiqueta: String) -> Control:
 	texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hueco.add_child(texto)
 	return hueco
+
+
+## Un grupo expuesto: sus fichas juntas y en pequeño.
+func _grupo_pequeno(grupo: Dictionary) -> Control:
+	var escala := 0.6
+	var caja := HBoxContainer.new()
+	caja.add_theme_constant_override("separation", 0)
+	for ficha in grupo["fichas"]:
+		var fv := FichaVisual.new(ficha)
+		fv.scale = Vector2(escala, escala)
+		fv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hueco := Control.new()
+		hueco.custom_minimum_size = FichaVisual.TAMANO * escala
+		hueco.add_child(fv)
+		caja.add_child(hueco)
+	# Un pequeño espacio entre grupos.
+	var margen := MarginContainer.new()
+	margen.add_theme_constant_override("margin_right", 10)
+	margen.add_child(caja)
+	return margen
 
 
 ## Lista de pasos con marcas: ✓ hecho, ▶ ahora, (vacío) pendiente.
@@ -615,6 +794,8 @@ func _crear_interfaz() -> void:
 	_texto_charleston = Label.new()
 	_texto_charleston.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	caja_izquierda.add_child(_texto_charleston)
+	_expuestas_rivales = VBoxContainer.new()
+	caja_izquierda.add_child(_expuestas_rivales)
 	_zona_descartes = ScrollContainer.new()
 	_zona_descartes.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	caja_izquierda.add_child(_zona_descartes)
@@ -647,6 +828,10 @@ func _crear_interfaz() -> void:
 	_fila_mano.alignment = BoxContainer.ALIGNMENT_CENTER
 	_fila_mano.add_theme_constant_override("separation", 4)
 	_fila_mano.custom_minimum_size.y = FichaVisual.TAMANO.y
+	_fila_expuestas = HBoxContainer.new()
+	_fila_expuestas.alignment = BoxContainer.ALIGNMENT_CENTER
+	_fila_expuestas.visible = false
+	columna.add_child(_fila_expuestas)
 	columna.add_child(_fila_mano)
 
 	# --- Botones de acción (grandes, para dedos). Cada fase muestra los suyos. ---
@@ -660,7 +845,12 @@ func _crear_interfaz() -> void:
 	_boton_robar = _boton("Robar", robar)
 	_boton_descartar = _boton("Descartar", descartar)
 	_boton_sugerir = _boton("Sugerir", sugerir)
-	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_robar, _boton_descartar, _boton_sugerir]:
+	_boton_mahjong = _boton("¡Mahjong!", func(): decidir_canto("mahjong"))
+	_boton_cantar = _boton("Cantar", func(): decidir_canto("exponer"))
+	_boton_no_cantar = _boton("No cantar", func(): decidir_canto("pasar"))
+	_boton_cambiar_comodin = _boton("Cambiar comodín", cambiar_comodin, 190)
+	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_mahjong, _boton_cantar,
+			_boton_no_cantar, _boton_robar, _boton_descartar, _boton_cambiar_comodin, _boton_sugerir]:
 		acciones.add_child(b)
 	acciones.add_child(_boton("Ordenar", _al_pulsar_ordenar))
 	acciones.add_child(_boton("¿Por qué?", func(): mostrar_leccion(_leccion_del_momento(), true)))

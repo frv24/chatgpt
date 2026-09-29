@@ -22,6 +22,13 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - Los rivales roban, descartan y pueden ganar. Si gana uno, ves su mano.
   - Cada descarte muestra quién lo hizo.
   - El puesto de Este rota en cada partida.
+- **Cantar descartes**:
+  - Si un descarte te sirve, el juego te ofrece «Cantar pung/kong/quint» o «¡Mahjong!» y te dice cuánto te acerca.
+  - Los grupos expuestos se ven sobre la mesa (los tuyos encima de tu mano, los de los rivales a la izquierda).
+  - Se aplica la preferencia: el Mahjong gana, y si no, el jugador más cercano en turno.
+  - Las manos ocultas pasan a «No posible» cuando expones un grupo.
+  - Los rivales también cantan, y un comodín descartado no se puede cantar.
+- **Cambiar comodines expuestos**: en tu turno, cambias la ficha real por el comodín de un grupo expuesto.
 - **Lecciones ("¿por qué?")**, para aprender aquí y luego jugar en una mesa real:
   - La primera vez que pasa algo (el Charleston, cada tipo de pase, los turnos, el Mahjong…)
     sale una explicación con un recuadro "En la mesa real".
@@ -75,7 +82,8 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [ ] El "pase a ciegas" del Charleston (pasar fichas recibidas sin mirarlas)
 - [x] Que los 3 rivales jueguen turnos: robar y descartar
 - [x] Lecciones con el porqué de cada regla y cómo se hace en la mesa real
-- [ ] Cantar descartes (pung, kong) y mostrar los grupos expuestos
+- [x] Cantar descartes (pung, kong, quint, Mahjong) y mostrar los grupos expuestos
+- [x] Cambiar comodines expuestos
 - [ ] Tutorial interactivo y niveles de ayuda (Aprendiz, Intermedio, Experto)
-- [ ] Dibujos de las fichas, sonidos y animaciones
+- [ ] Dibujos de las fichas (el juego ya los carga solo: ver `assets/fichas/LEEME.md`), sonidos y animaciones
 - [ ] Exportar a Android (Proyecto > Exportar) y después a iOS

@@ -16,8 +16,9 @@ const MANOS_A_CONSIDERAR := 3
 
 
 ## Devuelve las `cantidad` fichas que menos sirven (nunca comodines).
-static func fichas_que_sobran(mano: Array[Ficha], manos_tarjeta: Array[Dictionary], cantidad: int) -> Array[Ficha]:
-	var puntos := _puntuar(mano, manos_tarjeta)
+## `expuestas` son los grupos que el jugador ya tiene expuestos sobre la mesa.
+static func fichas_que_sobran(mano: Array[Ficha], manos_tarjeta: Array[Dictionary], cantidad: int, expuestas: Array = []) -> Array[Ficha]:
+	var puntos := _puntuar(mano, manos_tarjeta, expuestas)
 	var candidatas: Array[Ficha] = []
 	for f in mano:
 		if not f.es_comodin():
@@ -31,23 +32,25 @@ static func fichas_que_sobran(mano: Array[Ficha], manos_tarjeta: Array[Dictionar
 
 
 ## Explica en una frase por qué conviene soltar estas fichas.
-static func explicar(fichas: Array[Ficha], mano: Array[Ficha], manos_tarjeta: Array[Dictionary]) -> String:
+static func explicar(fichas: Array[Ficha], mano: Array[Ficha], manos_tarjeta: Array[Dictionary], expuestas: Array = []) -> String:
 	var nombres: Array[String] = []
 	for f in fichas:
 		nombres.append(f.nombre())
-	var cercana: Dictionary = Validador.manos_mas_cercanas(mano, manos_tarjeta, 1)[0]["mano"]
+	var cercana: Dictionary = Validador.manos_mas_cercanas(mano, manos_tarjeta, 1, expuestas)[0]["mano"]
 	var verbo := "ayuda" if fichas.size() == 1 else "ayudan"
 	return "Te sugiero soltar: %s. No te %s para «%s», tu mano más cercana." % [
 		", ".join(nombres), verbo, cercana["nombre"]]
 
 
-static func _puntuar(mano: Array[Ficha], manos_tarjeta: Array[Dictionary]) -> Dictionary:
+static func _puntuar(mano: Array[Ficha], manos_tarjeta: Array[Dictionary], expuestas: Array) -> Dictionary:
 	var puntos := {}
 	for f in mano:
 		puntos[f.id] = 0
-	var cercanas := Validador.manos_mas_cercanas(mano, manos_tarjeta, MANOS_A_CONSIDERAR)
+	var cercanas := Validador.manos_mas_cercanas(mano, manos_tarjeta, MANOS_A_CONSIDERAR, expuestas)
 	for i in cercanas.size():
 		var peso := MANOS_A_CONSIDERAR - i  # la más cercana vale 3, la siguiente 2...
+		if cercanas[i]["faltan"] == Validador.IMPOSIBLE:
+			continue
 		for id in Validador.ids_utiles(mano, cercanas[i]):
 			puntos[id] += peso
 	return puntos

@@ -41,8 +41,24 @@ var mostrar_consejo := false:
 		mostrar_consejo = v
 		_actualizar_estilo()
 
+## Carpeta de los diseños de las fichas. Si existe un archivo con el nombre de la
+## clave de la ficha (por ejemplo "bam5.png" o "comodin.png"), se usa esa imagen.
+## Si no existe, la ficha se dibuja con texto. Ver assets/fichas/LEEME.md.
+const CARPETA_DISENOS := "res://assets/fichas/"
+
+var _caja_textos := VBoxContainer.new()
 var _etiqueta_grande := Label.new()
 var _etiqueta_pequena := Label.new()
+var _imagen: TextureRect = null
+
+
+## Devuelve la imagen del diseño de una ficha, o null si todavía no hay diseño.
+static func diseno_de(clave: String) -> Texture2D:
+	for extension in ["png", "svg", "webp"]:
+		var ruta := "%s%s.%s" % [CARPETA_DISENOS, clave, extension]
+		if ResourceLoader.exists(ruta):
+			return load(ruta)
+	return null
 
 
 func _init(p_ficha: Ficha = null) -> void:
@@ -50,21 +66,31 @@ func _init(p_ficha: Ficha = null) -> void:
 	custom_minimum_size = TAMANO
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var caja := VBoxContainer.new()
-	caja.alignment = BoxContainer.ALIGNMENT_CENTER
-	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(caja)
+	_caja_textos.alignment = BoxContainer.ALIGNMENT_CENTER
+	_caja_textos.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_caja_textos)
 
 	for etiqueta in [_etiqueta_grande, _etiqueta_pequena]:
 		etiqueta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		etiqueta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		caja.add_child(etiqueta)
+		_caja_textos.add_child(etiqueta)
 	_etiqueta_grande.add_theme_font_size_override("font_size", 30)
 	_etiqueta_pequena.add_theme_font_size_override("font_size", 13)
 
 
 func _ready() -> void:
-	_actualizar_texto()
+	var textura := diseno_de(ficha.clave())
+	if textura:
+		# Hay diseño: se muestra la imagen en lugar del texto.
+		_imagen = TextureRect.new()
+		_imagen.texture = textura
+		_imagen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_imagen.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_imagen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_imagen)
+		_caja_textos.visible = false
+	else:
+		_actualizar_texto()
 	_actualizar_estilo()
 	tooltip_text = ficha.nombre()
 
@@ -99,6 +125,8 @@ func _actualizar_estilo() -> void:
 	var estilo := StyleBoxFlat.new()
 	estilo.bg_color = Color("fff1a8") if nueva else Color("fbf6e9")  # amarillo o marfil
 	estilo.set_corner_radius_all(8)
+	# Margen interior: así el borde de consejo/selección se ve alrededor del diseño.
+	estilo.set_content_margin_all(4)
 	estilo.set_border_width_all(2)
 	estilo.border_color = Color("9e9480")
 	if mostrar_consejo and util:
@@ -108,6 +136,9 @@ func _actualizar_estilo() -> void:
 		estilo.border_color = Color("f2a900")
 		estilo.set_border_width_all(5)
 	add_theme_stylebox_override("panel", estilo)
+	if _imagen:
+		# Con diseño, las fichas nuevas se tiñen de amarillo.
+		_imagen.self_modulate = Color(1, 0.93, 0.55) if nueva else Color.WHITE
 	# Las fichas que no sirven se ven más apagadas cuando los consejos están activos
 	# (salvo las nuevas y las seleccionadas, que deben verse bien).
 	var apagada := mostrar_consejo and not util and not nueva and not seleccionada

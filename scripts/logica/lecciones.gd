@@ -15,7 +15,9 @@ const ORDEN := [
 	"preparar_mesa", "asientos",
 	"charleston", "charleston_direcciones", "comodines_charleston",
 	"ultimo_pase", "segundo_charleston", "cortesia",
-	"turnos", "descartes_rivales", "mahjong", "muro_vacio",
+	"turnos", "descartes_rivales",
+	"cantar", "exponer", "manos_ocultas", "cambiar_comodin",
+	"mahjong", "muro_vacio",
 ]
 
 const TODAS := {
@@ -68,6 +70,26 @@ const TODAS := {
 		"titulo": "Fíjate en los descartes de los demás",
 		"texto": "Los descartes dan pistas. Si alguien tira muchos bambúes, seguramente no juega a bambúes. Y si un rival no tira nunca dragones, quizá los esté juntando: ten cuidado al descartarlos tú.",
 		"mesa": "Pronto podrás \"cantar\" un descarte: coger la ficha que otro acaba de tirar para completar un grupo tuyo.",
+	},
+	"cantar": {
+		"titulo": "Cantar un descarte",
+		"texto": "Cuando alguien descarta una ficha que te sirve, puedes \"cantarla\" (quedártela) aunque no sea tu turno. Solo se canta para:\n• formar un grupo de 3, 4 o 5 iguales (pung, kong o quint), usando fichas tuyas o comodines;\n• o hacer ¡Mahjong! Solo en este caso puedes cantar una ficha para una pareja o una ficha suelta.\nSi varios quieren la misma ficha, gana quien hace Mahjong. Si no, el jugador más cercano en turno a quien la descartó.",
+		"mesa": "Di en voz alta \"¡La quiero!\" (en inglés, \"call\") antes de que el siguiente jugador robe. Un comodín descartado está \"muerto\": nadie puede cantarlo.",
+	},
+	"exponer": {
+		"titulo": "Los grupos expuestos",
+		"texto": "Al cantar un descarte, pones el grupo boca arriba delante de tu atril: queda EXPUESTO y ya no puedes cambiarlo. Después descartas una ficha y el turno sigue por tu derecha (los jugadores de en medio se quedan sin turno).",
+		"mesa": "Los grupos expuestos dan pistas a los demás: saben a qué mano juegas. Por eso a veces conviene esperar a robar la ficha del muro en lugar de cantarla.",
+	},
+	"manos_ocultas": {
+		"titulo": "Manos ocultas y expuestas",
+		"texto": "Algunas manos de la tarjeta son OCULTAS: no puedes exponer ningún grupo para conseguirlas. En cuanto expones un grupo, esas manos quedan descartadas para ti (en la tarjeta aparecen como \"No posible\"). La única excepción: puedes cantar la última ficha si con ella haces Mahjong.",
+		"mesa": "En la tarjeta oficial, cada mano lleva una X (se puede exponer) o una C (oculta, del inglés \"concealed\"). Míralo antes de cantar.",
+	},
+	"cambiar_comodin": {
+		"titulo": "Cambiar un comodín expuesto",
+		"texto": "Si un grupo expuesto (tuyo o de otro jugador) tiene un comodín y tú tienes la ficha real, en tu turno puedes cambiarla por el comodín. Te llevas un comodín, ¡que vale mucho más!",
+		"mesa": "Hazlo en tu turno, después de robar y antes de descartar: pon tu ficha en el grupo y coge el comodín. Por eso conviene exponer grupos con fichas reales y guardar los comodines en la mano.",
 	},
 	"mahjong": {
 		"titulo": "¡Mahjong!",

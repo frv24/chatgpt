@@ -8,15 +8,23 @@ extends RefCounted
 ##      Probamos todas las combinaciones posibles; a cada una la llamamos "variante".
 ##      Ejemplo: "222 444 666 888 del palo A" tiene 3 variantes (bambúes,
 ##      caracteres o círculos).
-##   2. Cada variante es una lista concreta de fichas necesarias, separadas en:
+##   2. Cada variante es una lista concreta de grupos: {"clave": "bam2", "cant": 3}...
+##   3. Los grupos EXPUESTOS (los que el jugador ya enseñó al cantar un descarte)
+##      tienen que coincidir con un grupo de la variante. Las manos ocultas no
+##      admiten grupos expuestos.
+##   4. El resto de grupos se compara con las fichas de la mano:
 ##        - "solo_naturales": fichas de parejas o sueltas (sin comodín).
 ##        - "con_comodin": fichas de grupos de 3 o más (el comodín vale).
-##   3. Comparamos lo que tiene el jugador con cada variante y nos quedamos
-##      con la que está más cerca.
+##   5. Nos quedamos con la variante que está más cerca.
+##
+## Un grupo expuesto es un Dictionary: {"clave": "bam2", "fichas": Array[Ficha]}.
+
+## Valor de "faltan" cuando una mano ya no se puede conseguir.
+const IMPOSIBLE := 99
 
 
 ## Devuelve todas las variantes concretas de una mano de la tarjeta.
-## Cada variante es un Dictionary: clave de ficha -> {"solo_naturales": n, "con_comodin": n}
+## Cada variante es {"grupos": [{"clave": String, "cant": int}, ...]}.
 static func variantes(mano_tarjeta: Dictionary) -> Array[Dictionary]:
 	var grupos: Array = mano_tarjeta["grupos"]
 
@@ -42,7 +50,7 @@ static func variantes(mano_tarjeta: Dictionary) -> Array[Dictionary]:
 	var resultado: Array[Dictionary] = []
 	for asignacion in _asignaciones_de_palos(letras):
 		for x in valores_x:
-			resultado.append(_concretar(grupos, asignacion, x))
+			resultado.append({"grupos": _concretar(grupos, asignacion, x)})
 	return resultado
 
 
@@ -66,8 +74,9 @@ static func _asignar(letras: Array[String], i: int, actual: Dictionary, resultad
 		actual.erase(letras[i])
 
 
-static func _concretar(grupos: Array, asignacion: Dictionary, x: int) -> Dictionary:
-	var req := {}
+## Convierte los grupos de la tarjeta (con letras y X) en grupos concretos.
+static func _concretar(grupos: Array, asignacion: Dictionary, x: int) -> Array:
+	var concretos := []
 	for g in grupos:
 		var clave := ""
 		match g["tipo"]:
@@ -82,14 +91,8 @@ static func _concretar(grupos: Array, asignacion: Dictionary, x: int) -> Diction
 				clave = "v" + g["direccion"]
 			"flor":
 				clave = "flor"
-		if not req.has(clave):
-			req[clave] = {"solo_naturales": 0, "con_comodin": 0}
-		# Regla del Mahjong americano: comodines solo en grupos de 3 o más.
-		if g["cant"] >= 3:
-			req[clave]["con_comodin"] += g["cant"]
-		else:
-			req[clave]["solo_naturales"] += g["cant"]
-	return req
+		concretos.append({"clave": clave, "cant": g["cant"]})
+	return concretos
 
 
 ## Cuenta cuántas fichas hay de cada clave. Los comodines van aparte.
@@ -104,7 +107,36 @@ static func contar(fichas: Array[Ficha]) -> Dictionary:
 	return {"conteo": conteo, "comodines": comodines}
 
 
-## Compara las fichas del jugador con una variante concreta.
+## Quita de la variante los grupos que ya están expuestos y devuelve lo que falta
+## por completar con la mano, agrupado por clave. Devuelve {} si algún grupo
+## expuesto no encaja en esta variante.
+static func _requisitos_ocultos(variante: Dictionary, expuestas: Array) -> Dictionary:
+	var libres: Array = variante["grupos"].duplicate()
+	for e in expuestas:
+		var encontrado := -1
+		for i in libres.size():
+			if libres[i]["clave"] == e["clave"] and libres[i]["cant"] == e["fichas"].size():
+				encontrado = i
+				break
+		if encontrado == -1:
+			return {}
+		libres.remove_at(encontrado)
+
+	var req := {}
+	for g in libres:
+		if not req.has(g["clave"]):
+			req[g["clave"]] = {"solo_naturales": 0, "con_comodin": 0}
+		# Regla del Mahjong americano: comodines solo en grupos de 3 o más.
+		if g["cant"] >= 3:
+			req[g["clave"]]["con_comodin"] += g["cant"]
+		else:
+			req[g["clave"]]["solo_naturales"] += g["cant"]
+	# Marca para distinguir "no encaja" de "no falta nada".
+	req["_ok"] = true
+	return req
+
+
+## Compara las fichas del jugador con los requisitos de una variante.
 ## Devuelve:
 ##   "faltan": cuántas fichas le faltan para completarla (0 = completa).
 ##   "utiles": clave -> cuántas fichas de esa clave sirven para esta variante.
@@ -114,6 +146,8 @@ static func _comparar(conteo: Dictionary, comodines: int, req: Dictionary) -> Di
 	var faltan_comodinables := 0
 	var utiles := {}
 	for clave in req:
+		if clave == "_ok":
+			continue
 		var tengo: int = conteo.get(clave, 0)
 		var p: int = req[clave]["solo_naturales"]
 		var q: int = req[clave]["con_comodin"]
@@ -132,39 +166,48 @@ static func _comparar(conteo: Dictionary, comodines: int, req: Dictionary) -> Di
 	}
 
 
-## Analiza unas fichas contra una mano de la tarjeta y devuelve la variante más cercana
-## (el resultado de _comparar más la variante elegida en "variante").
-static func analizar(fichas: Array[Ficha], mano_tarjeta: Dictionary) -> Dictionary:
+## Analiza unas fichas (y los grupos expuestos del jugador) contra una mano de la
+## tarjeta y devuelve la variante más cercana. Si la mano ya no es posible
+## (por ejemplo, es oculta y el jugador tiene grupos expuestos), "faltan" vale IMPOSIBLE.
+static func analizar(fichas: Array[Ficha], mano_tarjeta: Dictionary, expuestas: Array = []) -> Dictionary:
+	var mejor := {"faltan": IMPOSIBLE, "utiles": {}, "comodines_usados": 0}
+	if mano_tarjeta["oculta"] and not expuestas.is_empty():
+		return mejor
 	var c := contar(fichas)
-	var mejor := {}
-	for req in variantes(mano_tarjeta):
+	for variante in variantes(mano_tarjeta):
+		var req := _requisitos_ocultos(variante, expuestas)
+		if req.is_empty():
+			continue
 		var r := _comparar(c["conteo"], c["comodines"], req)
-		if mejor.is_empty() or r["faltan"] < mejor["faltan"]:
+		if r["faltan"] < mejor["faltan"]:
 			mejor = r
-			mejor["variante"] = req
+			mejor["variante"] = variante
 	return mejor
 
 
-## ¿Estas 14 fichas forman exactamente esta mano de la tarjeta?
-static func es_mano_ganadora(fichas: Array[Ficha], mano_tarjeta: Dictionary) -> bool:
+## ¿Estas fichas (más los grupos expuestos) forman exactamente esta mano de la tarjeta?
+static func es_mano_ganadora(fichas: Array[Ficha], mano_tarjeta: Dictionary, expuestas: Array = []) -> bool:
+	var total := fichas.size()
+	for e in expuestas:
+		total += e["fichas"].size()
 	# Todas las manos suman 14; si no faltan fichas, las 14 están usadas y no sobra ninguna.
-	return fichas.size() == 14 and analizar(fichas, mano_tarjeta)["faltan"] == 0
+	return total == 14 and analizar(fichas, mano_tarjeta, expuestas)["faltan"] == 0
 
 
 ## Devuelve la primera mano de la tarjeta que cumplen las fichas, o {} si ninguna.
-static func buscar_mano_ganadora(fichas: Array[Ficha], manos: Array[Dictionary]) -> Dictionary:
+static func buscar_mano_ganadora(fichas: Array[Ficha], manos: Array[Dictionary], expuestas: Array = []) -> Dictionary:
 	for mano in manos:
-		if es_mano_ganadora(fichas, mano):
+		if es_mano_ganadora(fichas, mano, expuestas):
 			return mano
 	return {}
 
 
 ## Ordena las manos de la tarjeta de la más cercana a la más lejana.
 ## Cada elemento: {"mano": Dictionary, "faltan": int, "utiles": Dictionary, ...}
-static func manos_mas_cercanas(fichas: Array[Ficha], manos: Array[Dictionary], cuantas: int = 3) -> Array[Dictionary]:
+static func manos_mas_cercanas(fichas: Array[Ficha], manos: Array[Dictionary], cuantas: int = 3, expuestas: Array = []) -> Array[Dictionary]:
 	var lista: Array[Dictionary] = []
 	for mano in manos:
-		var r := analizar(fichas, mano)
+		var r := analizar(fichas, mano, expuestas)
 		r["mano"] = mano
 		lista.append(r)
 	lista.sort_custom(func(a, b): return a["faltan"] < b["faltan"])

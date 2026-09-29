@@ -20,6 +20,9 @@ func _init() -> void:
 	probar_asesor()
 	probar_charleston()
 	probar_partida()
+	probar_expuestas()
+	probar_cantos()
+	probar_cambio_de_comodin()
 	probar_lecciones()
 
 	print("")
@@ -315,3 +318,115 @@ func probar_lecciones() -> void:
 		if codigo.contains("mostrar_leccion(\"%s\")" % clave) and not Lecciones.TODAS.has(clave):
 			desconocidas.append(clave)
 	comprobar(desconocidas.is_empty(), "no se muestra ninguna lección inexistente %s" % str(desconocidas))
+
+
+## Crea un grupo expuesto a partir de un texto. Ejemplo: grupo("car4 car4 comodin").
+func grupo(texto: String) -> Dictionary:
+	var f := fichas(texto)
+	var clave := ""
+	for x in f:
+		if not x.es_comodin():
+			clave = x.clave()
+	return {"clave": clave, "fichas": f}
+
+
+func probar_expuestas() -> void:
+	print("Grupos expuestos:")
+	var pares := mano("Pares del 2 al 8")
+	var ocultas := fichas("flor flor car2 car2 car2 car6 car6 car6 car8 car8 car8")
+	comprobar(Validador.es_mano_ganadora(ocultas, pares, [grupo("car4 car4 comodin")]),
+		"gana con un pung expuesto que encaja en la mano")
+	comprobar(not Validador.es_mano_ganadora(ocultas, pares, [grupo("bam4 bam4 bam4")]),
+		"NO gana si el grupo expuesto es de otro palo")
+	var ocultas10 := fichas("flor flor car2 car2 car2 car6 car6 car6 car8 car8")
+	comprobar(not Validador.es_mano_ganadora(ocultas10, pares, [grupo("car4 car4 car4 car4")]),
+		"NO gana si expone un kong donde la mano pide un pung")
+	var parejas := fichas("bam3 bam3 bam4 bam4 bam5 bam5 bam6 bam6 bam7 bam7 bam8")
+	comprobar(Validador.analizar(parejas, mano("Parejas en escalera"), [grupo("vN vN vN")])["faltan"] == Validador.IMPOSIBLE,
+		"una mano oculta es imposible si tienes grupos expuestos")
+
+
+## Prepara una partida con manos conocidas: tú (asiento 0) acabas de descartar `descarte`.
+func partida_preparada(mano1: String, mano2: String, mano3: String, descarte: String) -> Partida:
+	var p := Partida.new(Tarjeta.manos(), 0, 5)
+	p.manos[0] = fichas(descarte + " vN vN vN vE vE vE vO vO vO vS vS vS")
+	p.manos[1] = fichas(mano1)
+	p.manos[2] = fichas(mano2)
+	p.manos[3] = fichas(mano3)
+	p.turno = 0
+	p.descartar(p.manos[0][0])
+	return p
+
+
+func probar_cantos() -> void:
+	print("Cantar descartes:")
+	var casi := "flor flor car2 car2 car2 car4 car4 car6 car6 car6 car8 car8 car8"
+	var cerca := "flor flor car2 car2 car2 car4 car4 car6 car6 vN car8 car8 car8"
+	var nada := "bam1 bam3 bam5 bam7 bam9 cir1 cir3 cir5 cir7 cir9 dR dV vE"
+
+	var p := partida_preparada(nada, cerca, casi, "car4")
+	var ficha: Ficha = p.descartes.back()["ficha"]
+	var ev := p.evaluar_canto(3, ficha)
+	comprobar(ev["mahjong"], "con el car4 descartado, Izquierda hace Mahjong")
+	ev = p.evaluar_canto(2, ficha)
+	comprobar(not ev["mahjong"] and ev["cant"] == 3, "a Enfrente le conviene cantar un pung de car4")
+	comprobar(ev["faltan_despues"] == ev["faltan_antes"] - 1, "cantar le acerca una ficha a su mano")
+	comprobar(p.evaluar_canto(1, ficha)["cant"] == 0, "a Derecha no le sirve")
+
+	var cantos := p.cantos_de_rivales()
+	comprobar(cantos.size() == 2, "dos rivales quieren la ficha")
+	comprobar(p.elegir_canto(cantos)["jugador"] == 3, "el Mahjong tiene preferencia aunque esté más lejos")
+
+	var p2 := partida_preparada(cerca, cerca, nada, "car4")
+	comprobar(p2.elegir_canto(p2.cantos_de_rivales())["jugador"] == 1,
+		"si dos quieren exponer, gana el más cercano en turno")
+	var descartes_antes := p2.descartes.size()
+	p2.cantar(1, 3, false)
+	comprobar(p2.descartes.size() == descartes_antes - 1, "la ficha cantada sale de los descartes")
+	comprobar(p2.expuestas[1].size() == 1 and p2.expuestas[1][0]["fichas"].size() == 3, "se expone un pung")
+	comprobar(p2.turno == 1 and not p2.debe_robar(), "quien canta descarta sin robar")
+	comprobar(p2.total_fichas(1) == 14, "quien canta tiene 14 fichas en total")
+
+	var p3 := partida_preparada(casi, nada, nada, "comodin")
+	comprobar(p3.cantos_de_rivales().is_empty(), "un comodín descartado no se puede cantar")
+
+	var impares := "cir1 cir3 cir3 cir3 cir5 cir5 cir5 cir5 cir7 cir7 cir7 cir9 cir9"
+	var p4 := partida_preparada(impares, nada, nada, "cir1")
+	comprobar(p4.evaluar_canto(1, p4.descartes.back()["ficha"])["mahjong"],
+		"se puede cantar para una pareja si es para hacer Mahjong")
+	var impares_lejos := "cir1 cir3 cir3 cir3 cir5 cir5 cir5 cir5 cir7 cir7 cir7 cir9 vN"
+	var p5 := partida_preparada(impares_lejos, nada, nada, "cir1")
+	comprobar(p5.evaluar_canto(1, p5.descartes.back()["ficha"])["cant"] == 0,
+		"NO se canta para completar una pareja si no es Mahjong")
+
+
+func probar_cambio_de_comodin() -> void:
+	print("Cambiar comodín:")
+	var p := Partida.new(Tarjeta.manos(), 0, 5)
+	p.expuestas[2] = [grupo("bam5 bam5 comodin")]
+	p.manos[0] = fichas("vN vN vN vE vE vE vO vO vO vS vS vS")
+	var bam5 := fichas("bam5")[0]
+	p.manos[0].append(bam5)
+	var opciones := p.cambios_de_comodin(0)
+	comprobar(opciones.size() == 1 and opciones[0]["ficha"] == bam5, "puedes cambiar tu bam5 por el comodín")
+	var comodin := p.cambiar_comodin(0, opciones[0])
+	comprobar(comodin.es_comodin() and p.manos[0].has(comodin), "el comodín pasa a tu mano")
+	comprobar(not p.manos[0].has(bam5) and p.expuestas[2][0]["fichas"].has(bam5), "tu bam5 queda en el grupo expuesto")
+	comprobar(p.cambios_de_comodin(0).is_empty(), "ya no quedan comodines que cambiar")
+
+	print("Partidas simuladas con cantos:")
+	var ganadas := 0
+	var todo_bien := true
+	for semilla in range(1, 21):
+		var sim := Partida.new(Tarjeta.manos(), semilla % 4, semilla)
+		sim.simular_hasta_el_final()
+		var total := sim.mazo.quedan() + sim.descartes.size()
+		for j in 4:
+			total += sim.total_fichas(j)
+		todo_bien = todo_bien and total == 152 and sim.terminada
+		if sim.ganador >= 0:
+			ganadas += 1
+			todo_bien = todo_bien and Validador.es_mano_ganadora(
+				sim.manos[sim.ganador], sim.mano_ganadora, sim.expuestas[sim.ganador])
+	comprobar(todo_bien, "20 partidas: terminan, no se pierden fichas y los ganadores son válidos")
+	comprobar(ganadas > 0, "con cantos alguien gana alguna vez (%d de 20)" % ganadas)
