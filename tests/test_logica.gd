@@ -23,6 +23,8 @@ func _init() -> void:
 	probar_expuestas()
 	probar_cantos()
 	probar_cambio_de_comodin()
+	probar_niveles()
+	probar_puntuacion()
 	probar_lecciones()
 
 	print("")
@@ -452,3 +454,87 @@ func probar_cambio_de_comodin() -> void:
 				sim.manos[sim.ganador], sim.mano_ganadora, sim.expuestas[sim.ganador])
 	comprobar(todo_bien, "10 partidas: terminan, no se pierden fichas y los ganadores son válidos")
 	comprobar(ganadas > 0, "con cantos alguien gana alguna vez (%d de 10)" % ganadas)
+
+
+func probar_niveles() -> void:
+	print("Niveles:")
+	var completos := true
+	for id in Niveles.ORDEN:
+		var n: Dictionary = Niveles.TODOS[id]
+		for campo in ["nombre", "descripcion", "consejos", "sugerencias", "explicaciones", "cantos", "marcador", "rivales", "pausa"]:
+			completos = completos and n.has(campo)
+	comprobar(completos, "los 4 niveles tienen todos sus ajustes")
+	comprobar(not Niveles.obtener("facil")["marcador"] and not Niveles.obtener("normal")["marcador"],
+		"Fácil y Normal no usan marcador")
+	comprobar(Niveles.obtener("intermedio")["marcador"] and Niveles.obtener("experto")["marcador"],
+		"Intermedio y Experto usan marcador")
+
+	# Qué grupos permiten las reglas (nivel Experto: cantar aunque no convenga).
+	var p := Partida.new(Tarjeta.manos(), 0, 3)
+	var bam5 := fichas("bam5")[0]
+	p.manos[0] = fichas("bam5 comodin vN vN vE vE vO vO vS vS dR dR dV")
+	comprobar(p.grupos_posibles(0, bam5) == [3], "con una igual y un comodín solo se puede cantar pung")
+	p.manos[0] = fichas("bam5 bam5 comodin comodin vE vE vO vO vS vS dR dR dV")
+	comprobar(p.grupos_posibles(0, bam5) == [3, 4, 5], "con dos iguales y dos comodines: pung, kong o quint")
+	p.manos[0] = fichas("comodin comodin comodin vE vE vO vO vS vS dR dR dV dV")
+	comprobar(p.grupos_posibles(0, bam5).is_empty(), "no se canta solo con comodines")
+
+	# Rivales tranquilos: nunca exponen grupos.
+	var expusieron := false
+	for semilla in range(1, 4):
+		var sim := Partida.new(Tarjeta.manos(), 0, semilla, "tranquilos")
+		sim.simular_hasta_el_final()
+		for j in range(1, 4):
+			expusieron = expusieron or not sim.expuestas[j].is_empty()
+	comprobar(not expusieron, "los rivales tranquilos no exponen grupos")
+
+	# Rivales expertos: evitan descartar fichas que completan grupos expuestos de otros.
+	for nivel in ["normales", "expertos"]:
+		var q := Partida.new(Tarjeta.manos(), 1, 3, nivel)
+		q.manos[1] = fichas("vE bam1 bam3 bam5 bam7 bam9 cir1 cir3 cir5 cir7 cir9 dR dV car2")
+		q.expuestas[2] = [grupo("vE vE vE")]
+		q.turno = 1
+		var tirada := q._elegir_descarte(1)
+		if nivel == "normales":
+			comprobar(tirada.clave() == "vE", "un rival normal tira el viento Este sin pensarlo")
+		else:
+			comprobar(tirada.clave() != "vE", "un rival experto guarda el Este que otro ha expuesto")
+
+
+func probar_puntuacion() -> void:
+	print("Puntuación:")
+	var casi := "flor flor car2 car2 car2 car4 car4 car6 car6 car6 car8 car8 car8"
+	var nada := "bam1 bam3 bam5 bam7 bam9 cir1 cir3 cir5 cir7 cir9 dR dV vE"
+
+	# Mahjong con el descarte de otro, sin comodines.
+	var p := partida_preparada(nada, nada, casi, "car4")
+	p.cantar(3, 0, true)
+	var r := p.calcular_pagos()
+	comprobar(p.ganador == 3 and p.mahjong_con_descarte_de == 0, "se sabe quién dio la ficha ganadora")
+	comprobar(r["sin_comodines"] and r["valor"] == 50, "sin comodines la mano vale el doble (25 x 2)")
+	comprobar(r["pagos"] == [-100, -50, -50, 200], "quien descartó paga el doble y los demás el valor")
+
+	# Mahjong robando del muro, con comodín.
+	var p2 := Partida.new(Tarjeta.manos(), 0, 9)
+	p2.manos[1] = fichas("flor flor car2 car2 comodin car4 car4 car6 car6 car6 car8 car8 car8")
+	p2.mazo.fichas.append(fichas("car4")[0])
+	p2.turno = 1
+	p2.robar()
+	var r2 := p2.calcular_pagos()
+	comprobar(p2.ganador == 1 and p2.mahjong_con_descarte_de == -1, "Mahjong robando del muro")
+	comprobar(not r2["sin_comodines"] and r2["valor"] == 25, "con comodín vale lo normal")
+	comprobar(r2["pagos"] == [-50, 150, -50, -50], "robando del muro, los tres pagan el doble")
+
+	# Las manos de solo parejas no tienen el doble por "sin comodines".
+	var p3 := Partida.new(Tarjeta.manos(), 0, 9)
+	p3.manos[2] = fichas("bam1 bam1 bam2 bam2 bam3 bam3 bam4 bam4 bam5 bam5 bam6 bam6 bam7")
+	p3.mazo.fichas.append(fichas("bam7")[0])
+	p3.turno = 2
+	p3.robar()
+	var r3 := p3.calcular_pagos()
+	comprobar(p3.ganador == 2 and r3["valor"] == 50 and not r3["sin_comodines"],
+		"en una mano de parejas no se dobla por no tener comodines")
+
+	var p4 := Partida.new(Tarjeta.manos(), 0, 9)
+	p4.terminada = true
+	comprobar(p4.calcular_pagos()["pagos"] == [0, 0, 0, 0], "si nadie gana, nadie paga")

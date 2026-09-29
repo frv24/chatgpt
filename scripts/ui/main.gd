@@ -19,7 +19,19 @@ const ARCHIVO_PROGRESO := "user://progreso.cfg"
 const ABREVIATURAS := ["Tú", "Der", "Enf", "Izq"]
 
 ## Segundos que tarda cada rival en jugar su turno (para que se vea qué hace).
+## Lo decide el nivel; `pausa_forzada` (si es >= 0) lo sustituye (para pruebas).
 var pausa_rivales := 1.2
+var pausa_forzada := -1.0
+
+## Nivel actual (ver scripts/logica/niveles.gd) y si ya se eligió alguna vez.
+var nivel_id := "facil"
+var _nivel: Dictionary = Niveles.obtener("facil")
+var _nivel_elegido := false
+## Sugerencias que quedan en esta partida (-1 = sin límite).
+var _sugerencias_restantes := -1
+## Puntos acumulados de cada jugador (niveles con marcador) y pagos de la última partida.
+var marcador := [0, 0, 0, 0]
+var _ultimos_pagos := [0, 0, 0, 0]
 
 var partida: Partida
 var charleston: Charleston
@@ -52,10 +64,10 @@ var _fichas_descartadas: HFlowContainer
 var _texto_charleston: Label
 var _lista_tarjeta: ItemList
 var _texto_objetivo: Label
+var _titulo_tarjeta: Label
 var _mensaje: Label
 var _info_partida: Label
-var _interruptor_consejos: CheckButton
-var _interruptor_explicaciones: CheckButton
+var _boton_marcador: Button
 var _boton_robar: Button
 var _boton_descartar: Button
 var _boton_pasar: Button
@@ -63,7 +75,6 @@ var _boton_sugerir: Button
 var _boton_segundo_si: Button
 var _boton_segundo_no: Button
 var _boton_mahjong: Button
-var _boton_cantar: Button
 var _boton_no_cantar: Button
 var _boton_cambiar_comodin: Button
 var _fila_expuestas: HBoxContainer
@@ -74,6 +85,10 @@ var _leccion: Dictionary  # etiquetas de la ventana de lección
 var _boton_entendido: Button
 var _capa_reglas: Control
 var _ventana_tarjeta: VentanaTarjeta
+var _capa_niveles: Control
+var _capa_marcador: Control
+var _texto_marcador: Label
+var _botones_cantar := {}  # tamaño del grupo (3, 4, 5) -> botón
 var _reglas: Dictionary  # etiquetas de la ventana de reglas
 var _analisis_lista: Array[Dictionary] = []
 
@@ -82,6 +97,8 @@ func _ready() -> void:
 	_cargar_progreso()
 	_crear_interfaz()
 	nueva_partida()
+	if not _nivel_elegido:
+		_abrir_niveles()
 
 
 # =============================================================================
@@ -90,7 +107,10 @@ func _ready() -> void:
 
 func nueva_partida() -> void:
 	_timer_rivales.stop()
-	partida = Partida.new(manos_tarjeta, _proximo_este)
+	_nivel = Niveles.obtener(nivel_id)
+	pausa_rivales = pausa_forzada if pausa_forzada >= 0 else _nivel["pausa"]
+	_sugerencias_restantes = _nivel["sugerencias"]
+	partida = Partida.new(manos_tarjeta, _proximo_este, 0, _nivel["rivales"])
 	_proximo_este = (_proximo_este + 1) % 4
 	charleston = partida.crear_charleston()
 	mano = partida.manos[0]
@@ -100,7 +120,8 @@ func nueva_partida() -> void:
 	ids_nuevas.clear()
 	_ordenar_mano()
 	fase = Fase.CHARLESTON
-	_mostrar_mensaje("Eres %s. Empieza el Charleston: mira la tarjeta, elige tu mano objetivo y toca 3 fichas que no te sirvan." % partida.viento(0))
+	_mostrar_mensaje("Nivel %s. Eres %s. Empieza el Charleston: mira la tarjeta, elige tu mano objetivo y toca 3 fichas que no te sirvan." % [
+		_nivel["nombre"], partida.viento(0)])
 	_refrescar()
 	for clave in ["preparar_mesa", "las_fichas", "asientos", "charleston", "charleston_direcciones"]:
 		mostrar_leccion(clave)
@@ -187,7 +208,7 @@ func _siguiente_turno() -> void:
 
 func _al_terminar_timer_rivales() -> void:
 	# Si el jugador está leyendo una lección, esperamos a que la cierre.
-	if _capa_leccion.visible or _capa_reglas.visible or _ventana_tarjeta.visible:
+	if _hay_ventana_abierta():
 		_timer_rivales.start(pausa_rivales)
 		return
 	var r := partida.jugar_turno_rival()
@@ -264,39 +285,49 @@ func cambiar_comodin() -> void:
 ## Después de cada descarte: ¿alguien quiere la ficha?
 func _tras_descarte() -> void:
 	var ultimo: Dictionary = partida.descartes.back()
+	var ficha: Ficha = ultimo["ficha"]
 	var cantos_rivales := partida.cantos_de_rivales()
-	var mio := {}
+	# Qué puedes hacer tú con esa ficha. Según el nivel, te avisamos solo si te
+	# conviene (Fácil, Normal, Intermedio) o siempre que las reglas lo permitan (Experto).
+	var mio := {"mahjong": false, "opciones": []}
+	var ev := {}
 	if ultimo["jugador"] != 0:
-		var ev := partida.evaluar_canto(0, ultimo["ficha"])
-		if ev["mahjong"] or ev["cant"] > 0:
-			mio = ev
-	if mio.is_empty():
+		ev = partida.evaluar_canto(0, ficha)
+		mio["mahjong"] = ev["mahjong"]
+		if _nivel["cantos"] == "todos":
+			mio["opciones"] = partida.grupos_posibles(0, ficha)
+		elif ev["cant"] > 0:
+			mio["opciones"] = [ev["cant"]]
+	if not mio["mahjong"] and mio["opciones"].is_empty():
 		_resolver_cantos(cantos_rivales, false)
 		return
 
-	# Te sirve la ficha: te preguntamos (los rivales esperan tu decisión).
+	# Te preguntamos (los rivales esperan tu decisión).
 	_canto_pendiente = {"rivales": cantos_rivales, "mio": mio}
 	fase = Fase.DECIDIR_CANTO
-	var ficha: Ficha = ultimo["ficha"]
-	if mio["mahjong"]:
+	if mio["mahjong"] and _nivel["cantos"] != "todos":
 		_agregar_mensaje("¡Con esa ficha completas tu mano! Pulsa «¡Mahjong!».")
-	else:
+	elif _nivel["cantos"] == "explicados":
 		_agregar_mensaje("¡Puedes cantarla! Formarías un %s de %s y a «%s» le faltarían %d en vez de %d." % [
-			Partida.NOMBRE_GRUPO[mio["cant"]], ficha.nombre(), mio["mano"], mio["faltan_despues"], mio["faltan_antes"]])
+			Partida.NOMBRE_GRUPO[ev["cant"]], ficha.nombre(), ev["mano"], ev["faltan_despues"], ev["faltan_antes"]])
+	else:
+		_agregar_mensaje("Puedes cantar %s. ¿Qué haces?" % ficha.nombre())
 	mostrar_leccion("cantar")
 	_refrescar()
 
 
-## Tu respuesta: "mahjong", "exponer" o "pasar".
-func decidir_canto(respuesta: String) -> void:
+## Tu respuesta: "mahjong", "exponer" (con el tamaño del grupo) o "pasar".
+func decidir_canto(respuesta: String, cant: int = 0) -> void:
 	if fase != Fase.DECIDIR_CANTO:
 		return
 	var cantos: Array[Dictionary] = _canto_pendiente["rivales"].duplicate()
 	var mio: Dictionary = _canto_pendiente["mio"]
+	if respuesta == "exponer" and cant == 0 and not mio["opciones"].is_empty():
+		cant = mio["opciones"][0]
 	if respuesta == "mahjong" and mio["mahjong"]:
 		cantos.append({"jugador": 0, "mahjong": true, "cant": 0})
-	elif respuesta == "exponer" and mio["cant"] > 0:
-		cantos.append({"jugador": 0, "mahjong": false, "cant": mio["cant"]})
+	elif respuesta == "exponer" and cant in mio["opciones"]:
+		cantos.append({"jugador": 0, "mahjong": false, "cant": cant})
 	_canto_pendiente = {}
 	_mostrar_mensaje("")
 	_resolver_cantos(cantos, respuesta != "pasar")
@@ -324,6 +355,8 @@ func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
 		ids_nuevas.append(ficha.id)
 		fase = Fase.DESCARTAR
 		_agregar_mensaje("Cantaste %s: expones un %s. Ahora descarta una ficha (sin robar)." % [ficha.nombre(), grupo])
+		if partida.mejor_analisis(0)["faltan"] == Validador.IMPOSIBLE:
+			_agregar_mensaje("Cuidado: con tus grupos expuestos ya no encajas en ninguna mano de la tarjeta (mano muerta).")
 		mostrar_leccion("exponer")
 		mostrar_leccion("manos_ocultas")
 		_refrescar()
@@ -347,11 +380,36 @@ func _terminar() -> void:
 		_mostrar_mensaje("%s hizo ¡MAHJONG! con «%s». Mira su mano a la izquierda. Pulsa «Nueva partida»." % [
 			partida.nombre(partida.ganador), partida.mano_ganadora["nombre"]])
 		mostrar_leccion("mahjong")
+	if _nivel["marcador"]:
+		_anotar_pagos()
+	mostrar_leccion("niveles")
 	_refrescar()
+
+
+## Suma los pagos de la partida al marcador (solo en niveles con marcador).
+func _anotar_pagos() -> void:
+	var r := partida.calcular_pagos()
+	_ultimos_pagos = r["pagos"]
+	for j in 4:
+		marcador[j] += _ultimos_pagos[j]
+	_guardar_progreso()
+	if partida.ganador == -1:
+		_agregar_mensaje("Nadie paga.")
+		return
+	var extra := " (¡sin comodines, doble!)" if r["sin_comodines"] else ""
+	var forma := "robando del muro: todos pagan doble" if partida.mahjong_con_descarte_de == -1 \
+		else "con el descarte de %s, que paga doble" % partida.nombre(partida.mahjong_con_descarte_de)
+	_agregar_mensaje("Vale %d%s; ganó %s. Tu resultado: %+d." % [r["valor"], extra, forma, _ultimos_pagos[0]])
+	mostrar_leccion("puntuacion")
 
 
 ## Selecciona las fichas que el asesor recomienda soltar y explica por qué.
 func sugerir() -> void:
+	if _sugerencias_restantes == 0:
+		_mostrar_mensaje("No te quedan sugerencias en esta partida (nivel %s)." % _nivel["nombre"])
+		return
+	if _sugerencias_restantes > 0:
+		_sugerencias_restantes -= 1
 	var cantidad := 1 if fase == Fase.DESCARTAR else Charleston.FICHAS_POR_PASE
 	var sugeridas := Asesor.fichas_que_sobran(mano, manos_tarjeta, cantidad, partida.expuestas[0])
 	seleccion.clear()
@@ -393,7 +451,7 @@ func _nombres(fichas: Array[Ficha]) -> String:
 ## Muestra una lección. Si `forzar` es false, solo sale la primera vez
 ## y solo si el interruptor «Explicaciones» está activado.
 func mostrar_leccion(clave: String, forzar: bool = false) -> void:
-	if not forzar and (not _interruptor_explicaciones.button_pressed or _lecciones_vistas.has(clave)):
+	if not forzar and (not _nivel["explicaciones"] or _lecciones_vistas.has(clave)):
 		return
 	if clave in _cola_lecciones:
 		return
@@ -454,12 +512,145 @@ func _cargar_progreso() -> void:
 	if config.load(ARCHIVO_PROGRESO) == OK:
 		for clave in config.get_value("lecciones", "vistas", []):
 			_lecciones_vistas[clave] = true
+		nivel_id = config.get_value("partida", "nivel", "facil")
+		_nivel_elegido = config.has_section_key("partida", "nivel")
+		marcador = config.get_value("partida", "marcador", [0, 0, 0, 0])
+	_nivel = Niveles.obtener(nivel_id)
 
 
 func _guardar_progreso() -> void:
 	var config := ConfigFile.new()
 	config.set_value("lecciones", "vistas", _lecciones_vistas.keys())
+	if _nivel_elegido:
+		config.set_value("partida", "nivel", nivel_id)
+	config.set_value("partida", "marcador", marcador)
 	config.save(ARCHIVO_PROGRESO)
+
+
+# =============================================================================
+#  NIVELES Y MARCADOR
+# =============================================================================
+
+func _hay_ventana_abierta() -> bool:
+	return _capa_leccion.visible or _capa_reglas.visible or _ventana_tarjeta.visible \
+		or _capa_niveles.visible or _capa_marcador.visible
+
+
+func _abrir_niveles() -> void:
+	# Marca el nivel actual.
+	for id in Niveles.ORDEN:
+		var tarjeta: Button = _capa_niveles.find_child("nivel_" + id, true, false)
+		var estilo: StyleBoxFlat = tarjeta.get_theme_stylebox("normal")
+		estilo.border_color = Color("ffe082") if id == nivel_id else Color("2e7d57")
+	_capa_niveles.visible = true
+
+
+func elegir_nivel(id: String) -> void:
+	nivel_id = id
+	_nivel_elegido = true
+	_capa_niveles.visible = false
+	_guardar_progreso()
+	nueva_partida()
+
+
+func _abrir_marcador() -> void:
+	var lineas: Array[String] = []
+	for j in 4:
+		var ultima := "   (última partida: %+d)" % _ultimos_pagos[j] if _ultimos_pagos[j] != 0 else ""
+		lineas.append("%s:   %+d puntos%s" % [partida.nombre(j), marcador[j], ultima])
+	_texto_marcador.text = "\n".join(lineas)
+	_capa_marcador.visible = true
+
+
+func reiniciar_marcador() -> void:
+	marcador = [0, 0, 0, 0]
+	_ultimos_pagos = [0, 0, 0, 0]
+	_guardar_progreso()
+	_abrir_marcador()
+
+
+## Ventana para elegir el nivel al empezar una partida.
+func _crear_ventana_niveles() -> void:
+	_capa_niveles = _capa_oscura()
+	var tarjeta := _panel_flotante(Vector2(1160, 0))
+	_capa_niveles.add_child(tarjeta)
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 18)
+	tarjeta.add_child(caja)
+	var titulo := Label.new()
+	titulo.text = "Nueva partida: elige tu nivel"
+	titulo.add_theme_font_size_override("font_size", 30)
+	titulo.add_theme_color_override("font_color", Color("ffe082"))
+	caja.add_child(titulo)
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 16)
+	caja.add_child(fila)
+	for id in Niveles.ORDEN:
+		var n := Niveles.obtener(id)
+		var boton := Button.new()
+		boton.name = "nivel_" + id
+		boton.custom_minimum_size = Vector2(265, 250)
+		boton.pressed.connect(func(): elegir_nivel(id))
+		for estado in ["normal", "hover", "pressed", "focus"]:
+			var estilo := StyleBoxFlat.new()
+			estilo.bg_color = Color("1f5c40") if estado == "hover" else Color("184a33")
+			estilo.set_border_width_all(3)
+			estilo.border_color = Color("2e7d57")
+			estilo.set_corner_radius_all(12)
+			boton.add_theme_stylebox_override(estado, estilo)
+		var textos := VBoxContainer.new()
+		textos.set_anchors_preset(Control.PRESET_FULL_RECT)
+		textos.offset_left = 16
+		textos.offset_right = -16
+		textos.offset_top = 14
+		textos.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		boton.add_child(textos)
+		var nombre := Label.new()
+		nombre.text = n["nombre"]
+		nombre.add_theme_font_size_override("font_size", 28)
+		nombre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		textos.add_child(nombre)
+		var descripcion := Label.new()
+		descripcion.text = n["descripcion"]
+		descripcion.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		descripcion.add_theme_font_size_override("font_size", 17)
+		descripcion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		textos.add_child(descripcion)
+		fila.add_child(boton)
+
+	var pie := HBoxContainer.new()
+	caja.add_child(pie)
+	var nota := Label.new()
+	nota.text = "Los puntos y el marcador solo se usan en Intermedio y Experto."
+	nota.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pie.add_child(nota)
+	pie.add_child(_boton("Cancelar", func(): _capa_niveles.visible = false))
+
+
+## Ventana del marcador (niveles Intermedio y Experto).
+func _crear_ventana_marcador() -> void:
+	_capa_marcador = _capa_oscura()
+	var tarjeta := _panel_flotante(Vector2(640, 0))
+	_capa_marcador.add_child(tarjeta)
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 16)
+	tarjeta.add_child(caja)
+	var titulo := Label.new()
+	titulo.text = "Marcador"
+	titulo.add_theme_font_size_override("font_size", 30)
+	titulo.add_theme_color_override("font_color", Color("ffe082"))
+	caja.add_child(titulo)
+	_texto_marcador = Label.new()
+	_texto_marcador.add_theme_font_size_override("font_size", 22)
+	caja.add_child(_texto_marcador)
+	var botones := HBoxContainer.new()
+	botones.alignment = BoxContainer.ALIGNMENT_END
+	botones.add_theme_constant_override("separation", 12)
+	caja.add_child(botones)
+	botones.add_child(_boton("Poner a cero", reiniciar_marcador, 170))
+	botones.add_child(_boton("¿Cómo se cuenta?", func(): mostrar_leccion("puntuacion", true), 200))
+	botones.add_child(_boton("Cerrar", func(): _capa_marcador.visible = false, 130))
 
 
 # =============================================================================
@@ -513,7 +704,7 @@ func _al_pulsar_ordenar() -> void:
 
 ## Abre la «Tarjeta 2026» completa.
 func _abrir_tarjeta() -> void:
-	_ventana_tarjeta.abrir(_analisis_lista, objetivo["nombre"], _interruptor_consejos.button_pressed)
+	_ventana_tarjeta.abrir(_analisis_lista, objetivo["nombre"], _nivel["consejos"])
 
 
 func _al_elegir_mano_en_tarjeta(nombre: String) -> void:
@@ -536,7 +727,7 @@ func _al_elegir_objetivo(indice: int) -> void:
 # =============================================================================
 
 func _refrescar() -> void:
-	_info_partida.text = "Eres: %s · Muro: %d" % [partida.viento(0), partida.mazo.quedan()]
+	_info_partida.text = "Nivel: %s · Eres: %s · Muro: %d" % [_nivel["nombre"], partida.viento(0), partida.mazo.quedan()]
 	_refrescar_botones()
 	_refrescar_tarjeta()
 	_refrescar_mano()
@@ -551,21 +742,34 @@ func _refrescar_botones() -> void:
 	_boton_segundo_no.visible = pregunta
 	var decidiendo := fase == Fase.DECIDIR_CANTO
 	_boton_mahjong.visible = decidiendo and _canto_pendiente["mio"]["mahjong"]
-	_boton_cantar.visible = decidiendo and _canto_pendiente["mio"]["cant"] > 0
-	if _boton_cantar.visible:
-		_boton_cantar.text = "Cantar " + Partida.NOMBRE_GRUPO[_canto_pendiente["mio"]["cant"]]
+	for cant in _botones_cantar:
+		_botones_cantar[cant].visible = decidiendo and cant in _canto_pendiente["mio"]["opciones"]
 	_boton_no_cantar.visible = decidiendo
 	_boton_robar.visible = not en_charleston and not decidiendo
 	_boton_descartar.visible = not en_charleston and not decidiendo
 	_boton_robar.disabled = fase != Fase.ROBAR
 	_boton_descartar.disabled = fase != Fase.DESCARTAR
 	_boton_cambiar_comodin.visible = fase == Fase.DESCARTAR and not partida.cambios_de_comodin(0).is_empty()
-	_boton_sugerir.disabled = not (_pasando_fichas() or fase == Fase.DESCARTAR)
+	_boton_sugerir.visible = _nivel["sugerencias"] != 0
+	_boton_sugerir.text = "Sugerir" if _sugerencias_restantes < 0 else "Sugerir (%d)" % _sugerencias_restantes
+	_boton_sugerir.disabled = not (_pasando_fichas() or fase == Fase.DESCARTAR) or _sugerencias_restantes == 0
+	_boton_marcador.visible = _nivel["marcador"]
 
 
 func _refrescar_tarjeta() -> void:
-	# Ordena todas las manos de la más cercana a la más lejana.
+	# Con consejos, las manos se ordenan de la más cercana a la más lejana y el objetivo
+	# se elige solo. Sin consejos (Intermedio y Experto) van en el orden de la tarjeta:
+	# decidir a qué mano jugar es parte del juego.
 	_analisis_lista = Validador.manos_mas_cercanas(mano, manos_tarjeta, manos_tarjeta.size(), partida.expuestas[0])
+	if not _nivel["consejos"]:
+		var por_nombre := {}
+		for a in _analisis_lista:
+			por_nombre[a["mano"]["nombre"]] = a
+		_analisis_lista.clear()
+		for m in manos_tarjeta:
+			_analisis_lista.append(por_nombre[m["nombre"]])
+	_titulo_tarjeta.text = ("Tus manos más cercanas" if _nivel["consejos"] else "Tarjeta 2026") \
+		+ " (toca una para elegirla como objetivo)"
 	if not objetivo_elegido:
 		objetivo = _analisis_lista[0]["mano"]
 
@@ -577,14 +781,17 @@ func _refrescar_tarjeta() -> void:
 			texto += "   (oculta)"
 		if a["faltan"] == Validador.IMPOSIBLE:
 			texto = "No posible · " + texto
-		elif _interruptor_consejos.button_pressed:
+		elif _nivel["consejos"]:
 			texto = "Faltan %d · %s" % [a["faltan"], texto]
 		_lista_tarjeta.add_item(texto)
 		if a["mano"]["nombre"] == objetivo["nombre"]:
 			_lista_tarjeta.select(i)
 
 	var texto_objetivo := "Objetivo: %s\n%s" % [objetivo["nombre"], objetivo["explicacion"]]
-	if _interruptor_consejos.button_pressed:
+	if not objetivo_elegido and not _nivel["consejos"]:
+		texto_objetivo = "Todavía no has elegido objetivo: toca una mano de la tarjeta."
+		_lista_tarjeta.deselect_all()
+	if _nivel["consejos"]:
 		texto_objetivo += "\n\nConsejo: " + objetivo["consejo"]
 	_texto_objetivo.text = texto_objetivo
 
@@ -593,7 +800,7 @@ func _refrescar_mano() -> void:
 	for hijo in _fila_mano.get_children():
 		hijo.queue_free()
 
-	var consejos := _interruptor_consejos.button_pressed
+	var consejos: bool = _nivel["consejos"]
 	var ids_utiles: Array[int] = []
 	if consejos:
 		ids_utiles = Validador.ids_utiles(mano, Validador.analizar(mano, objetivo, partida.expuestas[0]))
@@ -733,7 +940,8 @@ func _texto_pasos_charleston() -> String:
 
 	lineas.append("Pase de cortesía: 0 a 3 fichas ENFRENTE ↑" + ("   ▶" if etapa == Charleston.Etapa.CORTESIA else ""))
 	lineas.append("")
-	lineas.append("Truco: elige tu mano objetivo en la tarjeta y pasa lo que no encaje (lo apagado).")
+	lineas.append("Truco: elige tu mano objetivo en la tarjeta y pasa lo que no encaje%s." % (
+		" (lo apagado)" if _nivel["consejos"] else ""))
 	lineas.append("¿Dudas? Pulsa «¿Por qué?» para ver la explicación de este paso.")
 	return "\n".join(lineas)
 
@@ -782,19 +990,11 @@ func _crear_interfaz() -> void:
 	barra.add_child(espacio)
 	_info_partida = Label.new()
 	barra.add_child(_info_partida)
-	_interruptor_consejos = CheckButton.new()
-	_interruptor_consejos.text = "Consejos"
-	_interruptor_consejos.button_pressed = true
-	_interruptor_consejos.toggled.connect(func(_activo): _refrescar())
-	barra.add_child(_interruptor_consejos)
-	_interruptor_explicaciones = CheckButton.new()
-	_interruptor_explicaciones.text = "Explicaciones"
-	_interruptor_explicaciones.button_pressed = true
-	_interruptor_explicaciones.tooltip_text = "Muestra el porqué de cada regla la primera vez que aparece"
-	barra.add_child(_interruptor_explicaciones)
+	_boton_marcador = _boton("Marcador", _abrir_marcador, 130)
+	barra.add_child(_boton_marcador)
 	barra.add_child(_boton("Tarjeta 2026", _abrir_tarjeta, 150))
 	barra.add_child(_boton("Reglas", _abrir_reglas, 110))
-	barra.add_child(_boton("Nueva partida", nueva_partida, 160))
+	barra.add_child(_boton("Nueva partida", _abrir_niveles, 160))
 
 	# --- Zona central: Charleston/descartes a la izquierda, tarjeta a la derecha ---
 	var centro := HBoxContainer.new()
@@ -819,7 +1019,8 @@ func _crear_interfaz() -> void:
 	_fichas_descartadas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zona_descartes.add_child(_fichas_descartadas)
 
-	var panel_tarjeta := _panel("Tus manos más cercanas (toca una para elegirla como objetivo)")
+	var panel_tarjeta := _panel("")
+	_titulo_tarjeta = panel_tarjeta.get_child(0).get_child(0) as Label
 	panel_tarjeta.custom_minimum_size.x = 560
 	centro.add_child(panel_tarjeta)
 	_lista_tarjeta = ItemList.new()
@@ -862,10 +1063,11 @@ func _crear_interfaz() -> void:
 	_boton_descartar = _boton("Descartar", descartar)
 	_boton_sugerir = _boton("Sugerir", sugerir)
 	_boton_mahjong = _boton("¡Mahjong!", func(): decidir_canto("mahjong"))
-	_boton_cantar = _boton("Cantar", func(): decidir_canto("exponer"))
+	for cant in [3, 4, 5]:
+		_botones_cantar[cant] = _boton("Cantar " + Partida.NOMBRE_GRUPO[cant], func(): decidir_canto("exponer", cant))
 	_boton_no_cantar = _boton("No cantar", func(): decidir_canto("pasar"))
 	_boton_cambiar_comodin = _boton("Cambiar comodín", cambiar_comodin, 190)
-	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_mahjong, _boton_cantar,
+	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_mahjong] + _botones_cantar.values() + [
 			_boton_no_cantar, _boton_robar, _boton_descartar, _boton_cambiar_comodin, _boton_sugerir]:
 		acciones.add_child(b)
 	acciones.add_child(_boton("Ordenar", _al_pulsar_ordenar))
@@ -882,6 +1084,8 @@ func _crear_interfaz() -> void:
 	_ventana_tarjeta = VentanaTarjeta.new()
 	_ventana_tarjeta.mano_elegida.connect(_al_elegir_mano_en_tarjeta)
 	add_child(_ventana_tarjeta)
+	_crear_ventana_marcador()
+	_crear_ventana_niveles()
 
 
 ## Ventana que aparece encima del juego con una lección.

@@ -17,7 +17,7 @@ const ORDEN := [
 	"ultimo_pase", "segundo_charleston", "cortesia",
 	"turnos", "descartes_rivales",
 	"cantar", "exponer", "manos_ocultas", "cambiar_comodin",
-	"mahjong", "muro_vacio",
+	"mahjong", "muro_vacio", "puntuacion", "niveles",
 ]
 
 const TODAS := {
@@ -100,6 +100,16 @@ const TODAS := {
 		"titulo": "¡Mahjong!",
 		"texto": "Cuando tus 14 fichas forman exactamente una mano de la tarjeta, has ganado: dices \"¡Mahjong!\" y enseñas tu mano.",
 		"mesa": "Los demás comprueban tu mano con la tarjeta. Si cantas Mahjong por error y tu mano no es válida, quedas \"muerto\": ya no puedes ganar esa partida. ¡Revisa bien antes de cantarlo!",
+	},
+	"puntuacion": {
+		"titulo": "Puntos y pagos",
+		"texto": "Cada mano de la tarjeta vale unos puntos (25 a 50).\n• Si ganas con el DESCARTE de alguien, ese jugador te paga el doble y los otros dos, el valor normal.\n• Si ganas ROBANDO del muro, los tres te pagan el doble.\n• Si ganas SIN COMODINES (en una mano que los admite), todo vale el doble.\n• Si nadie gana, nadie paga.\nEl marcador suma lo ganado y lo perdido en cada partida.",
+		"mesa": "En la mesa real se juega con fichas de colores o monedas que valen puntos, y cada jugador empieza con la misma cantidad. Al terminar, cada uno paga al ganador en ese momento.",
+	},
+	"niveles": {
+		"titulo": "Los niveles",
+		"texto": "• FÁCIL: todas las ayudas y rivales tranquilos.\n• NORMAL: todas las ayudas y rivales que juegan de verdad.\n• INTERMEDIO: sin bordes verdes, 3 sugerencias por partida y con puntos y marcador.\n• EXPERTO: sin ayudas, como en la mesa real, con rivales que se defienden.\nPuedes cambiar de nivel en cada «Nueva partida».",
+		"mesa": "Cuando ganes a menudo en Normal, prueba Intermedio. Y cuando ya no necesites las sugerencias, ya tendrás lo necesario para jugar con amigos en una mesa real.",
 	},
 	"muro_vacio": {
 		"titulo": "Partida sin ganador",

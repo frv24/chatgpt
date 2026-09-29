@@ -35,11 +35,22 @@ var terminada := false
 ## Asiento del ganador, o -1 si no hay (todavía o por empate).
 var ganador := -1
 var mano_ganadora: Dictionary = {}
+## Quién descartó la ficha con la que se hizo Mahjong (-1 si la robó del muro).
+var mahjong_con_descarte_de := -1
+## Cómo juegan los rivales: "tranquilos", "normales" o "expertos" (ver niveles.gd).
+var nivel_rivales := "normales"
+var _rng := RandomNumberGenerator.new()
 
 
-func _init(p_manos_tarjeta: Array[Dictionary], p_este: int = 0, semilla: int = 0) -> void:
+func _init(p_manos_tarjeta: Array[Dictionary], p_este: int = 0, semilla: int = 0,
+		p_nivel_rivales: String = "normales") -> void:
 	manos_tarjeta = p_manos_tarjeta
 	este = p_este
+	nivel_rivales = p_nivel_rivales
+	if semilla != 0:
+		_rng.seed = semilla
+	else:
+		_rng.randomize()
 	mazo = Mazo.new(semilla)
 	mazo.barajar()
 	for i in 4:
@@ -167,6 +178,9 @@ func cantos_de_rivales(incluir_asiento_0: bool = false) -> Array[Dictionary]:
 		if j == ultimo["jugador"]:
 			continue
 		var ev := evaluar_canto(j, ultimo["ficha"])
+		# Los rivales tranquilos solo cantan para hacer Mahjong.
+		if nivel_rivales == "tranquilos" and j != 0:
+			ev["cant"] = 0
 		if ev["mahjong"] or ev["cant"] > 0:
 			cantos.append({"jugador": j, "mahjong": ev["mahjong"], "cant": ev["cant"]})
 	return cantos
@@ -189,9 +203,11 @@ func elegir_canto(cantos: Array[Dictionary]) -> Dictionary:
 ## `jugador` se queda el último descarte. Si no es Mahjong, expone un grupo de `cant`
 ## fichas y le toca descartar. Devuelve la ficha cantada.
 func cantar(jugador: int, cant: int, es_mahjong: bool) -> Ficha:
-	var ficha: Ficha = descartes.pop_back()["ficha"]
+	var ultimo: Dictionary = descartes.pop_back()
+	var ficha: Ficha = ultimo["ficha"]
 	turno = jugador
 	if es_mahjong:
+		mahjong_con_descarte_de = ultimo["jugador"]
 		manos[jugador].append(ficha)
 		comprobar_mahjong()
 		return ficha
@@ -202,6 +218,28 @@ func cantar(jugador: int, cant: int, es_mahjong: bool) -> Ficha:
 	grupo.append(ficha)
 	expuestas[jugador].append({"clave": ficha.clave(), "fichas": grupo})
 	return ficha
+
+
+## Tamaños de grupo que `jugador` puede formar con esa ficha según las reglas
+## (aunque no le convenga): 3, 4 o 5. Un comodín descartado no se puede cantar.
+func grupos_posibles(jugador: int, ficha: Ficha) -> Array[int]:
+	var tamanos: Array[int] = []
+	if ficha.es_comodin():
+		return tamanos
+	var naturales := 0
+	var comodines := 0
+	for f in manos[jugador]:
+		if f.es_comodin():
+			comodines += 1
+		elif f.clave() == ficha.clave():
+			naturales += 1
+	# Hace falta al menos una ficha igual de verdad: no se canta solo con comodines.
+	if naturales == 0:
+		return tamanos
+	for cant in [3, 4, 5]:
+		if naturales + comodines >= cant - 1:
+			tamanos.append(cant)
+	return tamanos
 
 
 ## Elige las fichas de la mano para completar un grupo: primero las naturales
@@ -252,6 +290,59 @@ func cambiar_comodin(jugador: int, opcion: Dictionary) -> Ficha:
 	return comodin
 
 
+## Qué ficha descarta un rival, según su nivel.
+func _elegir_descarte(jugador: int) -> Ficha:
+	var mano: Array[Ficha] = manos[jugador]
+	if nivel_rivales == "tranquilos" and _rng.randf() < 0.4:
+		# A veces descarta sin pensar (pero nunca un comodín).
+		var sin_comodines := mano.filter(func(f): return not f.es_comodin())
+		if not sin_comodines.is_empty():
+			return sin_comodines[_rng.randi_range(0, sin_comodines.size() - 1)]
+	var evitar: Array[String] = []
+	if nivel_rivales == "expertos":
+		# Defensa: evita tirar fichas que completan grupos expuestos de otros jugadores.
+		for otro in 4:
+			if otro != jugador:
+				for g in expuestas[otro]:
+					evitar.append(g["clave"])
+	return Asesor.fichas_que_sobran(mano, manos_tarjeta, 1, expuestas[jugador], evitar)[0]
+
+
+# =============================================================================
+#  PUNTUACIÓN (niveles Intermedio y Experto)
+# =============================================================================
+
+## Calcula los pagos al terminar la partida. Reglas:
+##   - La mano vale los puntos de la tarjeta.
+##   - Sin comodines (en manos que los admiten) vale el doble.
+##   - Si ganó con un descarte: quien lo descartó paga el doble y los otros dos, el valor.
+##   - Si ganó robando del muro: los tres pagan el doble.
+##   - Si nadie gana, nadie paga.
+## Devuelve {"pagos": [4 números, positivo = cobra], "valor": int, "sin_comodines": bool}.
+func calcular_pagos() -> Dictionary:
+	var pagos := [0, 0, 0, 0]
+	var resultado := {"pagos": pagos, "valor": 0, "sin_comodines": false}
+	if ganador == -1:
+		return resultado
+	var todas: Array[Ficha] = manos[ganador].duplicate()
+	for g in expuestas[ganador]:
+		todas.append_array(g["fichas"])
+	var admite_comodines: bool = mano_ganadora["grupos"].any(func(g): return g["cant"] >= 3)
+	var sin_comodines: bool = admite_comodines and Validador.contar(todas)["comodines"] == 0
+	var valor: int = mano_ganadora["puntos"] * (2 if sin_comodines else 1)
+	for j in 4:
+		if j == ganador:
+			continue
+		var paga := valor
+		if mahjong_con_descarte_de == -1 or j == mahjong_con_descarte_de:
+			paga = valor * 2
+		pagos[j] -= paga
+		pagos[ganador] += paga
+	resultado["valor"] = valor
+	resultado["sin_comodines"] = sin_comodines
+	return resultado
+
+
 func _deshacer_cambio(jugador: int, opcion: Dictionary, comodin: Ficha) -> void:
 	var grupo: Array = expuestas[opcion["dueno"]][opcion["indice"]]["fichas"]
 	grupo[grupo.find(opcion["ficha"])] = comodin
@@ -275,8 +366,9 @@ func jugar_turno_rival() -> Dictionary:
 	if terminada:
 		return resultado
 
-	# Cambia comodines expuestos, pero solo si no empeora su mano.
-	for _intento in 4:
+	# Cambia comodines expuestos, pero solo si no empeora su mano
+	# (los rivales tranquilos no se fijan en eso).
+	for _intento in (0 if nivel_rivales == "tranquilos" else 4):
 		var hecho := false
 		for opcion in cambios_de_comodin(jugador):
 			var antes: int = mejor_analisis(jugador)["faltan"]
@@ -291,7 +383,7 @@ func jugar_turno_rival() -> Dictionary:
 	if comprobar_mahjong():
 		return resultado
 
-	var descarte: Ficha = Asesor.fichas_que_sobran(manos[jugador], manos_tarjeta, 1, expuestas[jugador])[0]
+	var descarte := _elegir_descarte(jugador)
 	descartar(descarte)
 	resultado["descartada"] = descarte
 	return resultado

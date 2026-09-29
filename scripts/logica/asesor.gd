@@ -17,8 +17,13 @@ const MANOS_A_CONSIDERAR := 3
 
 ## Devuelve las `cantidad` fichas que menos sirven (nunca comodines).
 ## `expuestas` son los grupos que el jugador ya tiene expuestos sobre la mesa.
-static func fichas_que_sobran(mano: Array[Ficha], manos_tarjeta: Array[Dictionary], cantidad: int, expuestas: Array = []) -> Array[Ficha]:
+## `evitar` son claves de fichas peligrosas de soltar (se guardan si se puede).
+static func fichas_que_sobran(mano: Array[Ficha], manos_tarjeta: Array[Dictionary], cantidad: int,
+		expuestas: Array = [], evitar: Array[String] = []) -> Array[Ficha]:
 	var puntos := _puntuar(mano, manos_tarjeta, expuestas)
+	for f in mano:
+		if f.clave() in evitar:
+			puntos[f.id] += 1
 	var candidatas: Array[Ficha] = []
 	for f in mano:
 		if not f.es_comodin():

@@ -39,7 +39,15 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - El botón **¿Por qué?** explica el paso actual en cualquier momento.
   - El botón **Reglas** reúne todas las lecciones para repasarlas.
   - El interruptor **Explicaciones** las desactiva; la app recuerda cuáles ya viste.
-- **Consejos**:
+- **4 niveles** (se eligen en «Nueva partida»; se configuran en `scripts/logica/niveles.gd`):
+  - **Fácil**: todas las ayudas y rivales tranquilos (no exponen grupos y a veces tiran sin pensar).
+  - **Normal**: todas las ayudas y rivales que juegan de verdad.
+  - **Intermedio**: sin bordes verdes ni orden por cercanía, 3 sugerencias por partida, con puntos y marcador.
+  - **Experto**: sin ayudas, puedes cantar cualquier descarte que permitan las reglas y los rivales
+    se defienden (no tiran fichas que completan tus grupos expuestos). Con puntos y marcador.
+- **Puntos y marcador** (Intermedio y Experto): quien descarta la ficha ganadora paga doble,
+  si ganas robando todos pagan doble y una mano sin comodines vale el doble.
+- **Consejos** (Fácil y Normal):
   - Las manos de la tarjeta se ordenan según cuántas fichas te faltan.
   - Las fichas que te sirven llevan borde verde; las que no, se ven apagadas.
   - Cada mano trae su explicación y un consejo.
@@ -59,6 +67,7 @@ scripts/logica/          Reglas del juego (no dibujan nada)
   charleston.gd          Los pases del Charleston
   partida.gd             Reparto, turnos y final de la partida
   lecciones.gd           Los textos del "¿por qué?" (edítalos aquí)
+  niveles.gd             Los 4 niveles y sus ayudas (edítalos aquí)
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
@@ -90,7 +99,8 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [x] Lecciones con el porqué de cada regla y cómo se hace en la mesa real
 - [x] Cantar descartes (pung, kong, quint, Mahjong) y mostrar los grupos expuestos
 - [x] Cambiar comodines expuestos
-- [ ] Tutorial interactivo y niveles de ayuda (Aprendiz, Intermedio, Experto)
+- [x] Niveles Fácil, Normal, Intermedio y Experto, con puntos y marcador en los dos últimos
+- [ ] Tutorial interactivo
 - [x] Diseños propios de las fichas (tema mexicano: Nopal, Picado, Sol…; ver `assets/fichas/LEEME.md`)
 - [ ] Sonidos y animaciones
 - [ ] Exportar a Android (Proyecto > Exportar) y después a iOS
