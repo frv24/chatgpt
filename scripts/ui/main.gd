@@ -73,6 +73,7 @@ var _capa_leccion: Control
 var _leccion: Dictionary  # etiquetas de la ventana de lección
 var _boton_entendido: Button
 var _capa_reglas: Control
+var _ventana_tarjeta: VentanaTarjeta
 var _reglas: Dictionary  # etiquetas de la ventana de reglas
 var _analisis_lista: Array[Dictionary] = []
 
@@ -186,7 +187,7 @@ func _siguiente_turno() -> void:
 
 func _al_terminar_timer_rivales() -> void:
 	# Si el jugador está leyendo una lección, esperamos a que la cierre.
-	if _capa_leccion.visible or _capa_reglas.visible:
+	if _capa_leccion.visible or _capa_reglas.visible or _ventana_tarjeta.visible:
 		_timer_rivales.start(pausa_rivales)
 		return
 	var r := partida.jugar_turno_rival()
@@ -510,6 +511,20 @@ func _al_pulsar_ordenar() -> void:
 	_refrescar_mano()
 
 
+## Abre la «Tarjeta 2026» completa.
+func _abrir_tarjeta() -> void:
+	_ventana_tarjeta.abrir(_analisis_lista, objetivo["nombre"], _interruptor_consejos.button_pressed)
+
+
+func _al_elegir_mano_en_tarjeta(nombre: String) -> void:
+	for m in manos_tarjeta:
+		if m["nombre"] == nombre:
+			objetivo = m
+			objetivo_elegido = true
+	_mostrar_mensaje("Tu objetivo ahora es «%s»." % nombre)
+	_refrescar()
+
+
 func _al_elegir_objetivo(indice: int) -> void:
 	objetivo = _analisis_lista[indice]["mano"]
 	objetivo_elegido = true
@@ -777,7 +792,8 @@ func _crear_interfaz() -> void:
 	_interruptor_explicaciones.button_pressed = true
 	_interruptor_explicaciones.tooltip_text = "Muestra el porqué de cada regla la primera vez que aparece"
 	barra.add_child(_interruptor_explicaciones)
-	barra.add_child(_boton("Reglas", _abrir_reglas, 120))
+	barra.add_child(_boton("Tarjeta 2026", _abrir_tarjeta, 150))
+	barra.add_child(_boton("Reglas", _abrir_reglas, 110))
 	barra.add_child(_boton("Nueva partida", nueva_partida, 160))
 
 	# --- Zona central: Charleston/descartes a la izquierda, tarjeta a la derecha ---
@@ -803,7 +819,7 @@ func _crear_interfaz() -> void:
 	_fichas_descartadas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zona_descartes.add_child(_fichas_descartadas)
 
-	var panel_tarjeta := _panel("Tarjeta de manos (toca una para elegirla como objetivo)")
+	var panel_tarjeta := _panel("Tus manos más cercanas (toca una para elegirla como objetivo)")
 	panel_tarjeta.custom_minimum_size.x = 560
 	centro.add_child(panel_tarjeta)
 	_lista_tarjeta = ItemList.new()
@@ -863,6 +879,9 @@ func _crear_interfaz() -> void:
 
 	_crear_ventana_leccion()
 	_crear_ventana_reglas()
+	_ventana_tarjeta = VentanaTarjeta.new()
+	_ventana_tarjeta.mano_elegida.connect(_al_elegir_mano_en_tarjeta)
+	add_child(_ventana_tarjeta)
 
 
 ## Ventana que aparece encima del juego con una lección.

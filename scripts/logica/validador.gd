@@ -23,9 +23,20 @@ extends RefCounted
 const IMPOSIBLE := 99
 
 
+## Variantes ya calculadas, por nombre de mano (se calculan una sola vez).
+static var _cache_variantes := {}
+
+
 ## Devuelve todas las variantes concretas de una mano de la tarjeta.
-## Cada variante es {"grupos": [{"clave": String, "cant": int}, ...]}.
+## Cada variante es {"grupos": [{"clave": String, "cant": int}, ...], "req": requisitos}.
 static func variantes(mano_tarjeta: Dictionary) -> Array[Dictionary]:
+	var nombre: String = mano_tarjeta["nombre"]
+	if not _cache_variantes.has(nombre):
+		_cache_variantes[nombre] = _calcular_variantes(mano_tarjeta)
+	return _cache_variantes[nombre]
+
+
+static func _calcular_variantes(mano_tarjeta: Dictionary) -> Array[Dictionary]:
 	var grupos: Array = mano_tarjeta["grupos"]
 
 	# ¿Qué letras de palo usa la mano? (A, B, C...)
@@ -48,9 +59,17 @@ static func variantes(mano_tarjeta: Dictionary) -> Array[Dictionary]:
 			valores_x.append(x)
 
 	var resultado: Array[Dictionary] = []
+	var vistas := {}
 	for asignacion in _asignaciones_de_palos(letras):
 		for x in valores_x:
-			resultado.append({"grupos": _concretar(grupos, asignacion, x)})
+			var variante := {"grupos": _concretar(grupos, asignacion, x)}
+			variante["req"] = _requisitos_ocultos(variante, [])
+			# Algunas asignaciones dan la misma variante (por ejemplo, dragones de
+			# palos distintos en otro orden): solo se guarda una vez.
+			var firma := str(variante["req"])
+			if not vistas.has(firma):
+				vistas[firma] = true
+				resultado.append(variante)
 	return resultado
 
 
@@ -175,7 +194,7 @@ static func analizar(fichas: Array[Ficha], mano_tarjeta: Dictionary, expuestas: 
 		return mejor
 	var c := contar(fichas)
 	for variante in variantes(mano_tarjeta):
-		var req := _requisitos_ocultos(variante, expuestas)
+		var req: Dictionary = variante["req"] if expuestas.is_empty() else _requisitos_ocultos(variante, expuestas)
 		if req.is_empty():
 			continue
 		var r := _comparar(c["conteo"], c["comodines"], req)

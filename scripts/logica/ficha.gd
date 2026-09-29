@@ -43,6 +43,20 @@ func _init(p_tipo: Tipo, p_palo: String = "", p_valor: int = 0, p_id: int = 0) -
 	id = p_id
 
 
+## Crea una ficha a partir de su clave (lo contrario de clave()).
+## Ejemplo: Ficha.desde_clave("bam5") es un Nopal 5.
+static func desde_clave(clave: String, p_id: int = 0) -> Ficha:
+	if clave == "flor":
+		return Ficha.new(Tipo.FLOR, "", 0, p_id)
+	if clave == "comodin":
+		return Ficha.new(Tipo.COMODIN, "", 0, p_id)
+	if clave.begins_with("v"):
+		return Ficha.new(Tipo.VIENTO, clave.substr(1), 0, p_id)
+	if clave.begins_with("d"):
+		return Ficha.new(Tipo.DRAGON, clave.substr(1), 0, p_id)
+	return Ficha.new(Tipo.NUMERO, clave.substr(0, 3), int(clave.substr(3)), p_id)
+
+
 ## Clave de texto que identifica la "clase" de ficha, sin importar cuál copia es.
 ## Ejemplos: "bam5", "car3", "vN", "dR", "flor", "comodin".
 ## Las fichas iguales tienen la misma clave.

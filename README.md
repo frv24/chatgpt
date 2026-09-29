@@ -11,7 +11,10 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
 ## Qué hay ya hecho
 - **Las 152 fichas**: barajar y repartir.
 - **Fichas con diseño propio** (tema mexicano): palos Nopal, Picado y Sol; dragones Chile, Maguey y Blanco; flores de cempasúchil.
-- **Tarjeta de principiante**: 7 manos inventadas al estilo de la tarjeta oficial.
+- **Tarjeta 2026**: 45 manos inventadas al estilo de la tarjeta oficial, en 9 secciones
+  (2026, 2468, Números iguales, Quints, Escaleras, 13579, Vientos y dragones, 369, Parejas).
+  El botón **Tarjeta 2026** la abre con diseño mexicano (papel picado) y cada mano dibujada
+  con las fichas del juego; tocando una mano la eliges como objetivo.
 - **Validador de manos**, que ya aplica las reglas de los comodines: solo valen en grupos de 3 o más.
 - **Charleston completo**, guiado paso a paso:
   - Primer Charleston (derecha, enfrente, izquierda).
@@ -50,7 +53,7 @@ scenes/main.tscn         Escena principal
 scripts/logica/          Reglas del juego (no dibujan nada)
   ficha.gd               Una ficha
   mazo.gd                Las 152 fichas: barajar y repartir
-  tarjeta.gd             Las manos ganadoras (edítalas aquí)
+  tarjeta.gd             Las 45 manos de la Tarjeta 2026 (edítalas aquí)
   validador.gd           ¿Es mano ganadora? ¿Cuántas fichas faltan?
   asesor.gd              Qué fichas sobran (lo usan los rivales y «Sugerir»)
   charleston.gd          Los pases del Charleston
@@ -59,6 +62,8 @@ scripts/logica/          Reglas del juego (no dibujan nada)
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
+  ventana_tarjeta.gd     La ventana «Tarjeta 2026»
+  papel_picado.gd        El adorno de papel picado
 tests/test_logica.gd     Pruebas automáticas de las reglas
 ```
 

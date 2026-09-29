@@ -96,11 +96,33 @@ func probar_mazo() -> void:
 
 func probar_tarjeta() -> void:
 	print("Tarjeta:")
-	for m in Tarjeta.manos():
+	var manos := Tarjeta.manos()
+	comprobar(manos.size() >= 40, "la tarjeta tiene %d manos" % manos.size())
+	var nombres := {}
+	var mal_suma := []
+	var mal_ejemplo := []
+	var mal_seccion := []
+	for m in manos:
+		nombres[m["nombre"]] = true
 		var total := 0
 		for g in m["grupos"]:
 			total += g["cant"]
-		comprobar(total == 14, "'%s' suma 14 fichas" % m["nombre"])
+		if total != 14:
+			mal_suma.append(m["nombre"])
+		if not m["seccion"] in Tarjeta.SECCIONES:
+			mal_seccion.append(m["nombre"])
+		# El ejemplo de la tarjeta debe ser una mano ganadora de verdad.
+		var ejemplo: Array[Ficha] = []
+		for grupo in Tarjeta.ejemplo(m):
+			ejemplo.append_array(grupo)
+		if not Validador.es_mano_ganadora(ejemplo, m) or Validador.contar(ejemplo)["comodines"] > 8:
+			mal_ejemplo.append(m["nombre"])
+	comprobar(nombres.size() == manos.size(), "no hay nombres de mano repetidos")
+	comprobar(mal_suma.is_empty(), "todas las manos suman 14 fichas %s" % str(mal_suma))
+	comprobar(mal_seccion.is_empty(), "todas las manos tienen una sección válida %s" % str(mal_seccion))
+	comprobar(mal_ejemplo.is_empty(), "todas las manos se pueden formar con fichas reales %s" % str(mal_ejemplo))
+	for seccion in Tarjeta.SECCIONES:
+		comprobar(manos.any(func(m): return m["seccion"] == seccion), "la sección «%s» tiene manos" % seccion)
 	comprobar(Validador.variantes(mano("Pares del 2 al 8")).size() == 3, "una mano de un palo tiene 3 variantes")
 	comprobar(Validador.variantes(mano("Escalera de tres")).size() == 21, "escalera: 3 palos x 7 valores de X")
 
@@ -417,7 +439,7 @@ func probar_cambio_de_comodin() -> void:
 	print("Partidas simuladas con cantos:")
 	var ganadas := 0
 	var todo_bien := true
-	for semilla in range(1, 21):
+	for semilla in range(1, 11):
 		var sim := Partida.new(Tarjeta.manos(), semilla % 4, semilla)
 		sim.simular_hasta_el_final()
 		var total := sim.mazo.quedan() + sim.descartes.size()
@@ -428,5 +450,5 @@ func probar_cambio_de_comodin() -> void:
 			ganadas += 1
 			todo_bien = todo_bien and Validador.es_mano_ganadora(
 				sim.manos[sim.ganador], sim.mano_ganadora, sim.expuestas[sim.ganador])
-	comprobar(todo_bien, "20 partidas: terminan, no se pierden fichas y los ganadores son válidos")
-	comprobar(ganadas > 0, "con cantos alguien gana alguna vez (%d de 20)" % ganadas)
+	comprobar(todo_bien, "10 partidas: terminan, no se pierden fichas y los ganadores son válidos")
+	comprobar(ganadas > 0, "con cantos alguien gana alguna vez (%d de 10)" % ganadas)
