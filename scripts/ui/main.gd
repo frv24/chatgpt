@@ -52,6 +52,19 @@ var ids_nuevas: Array[int] = []
 ## Mientras decides si cantar un descarte: {"rivales": cantos de los rivales, "mio": evaluación}.
 var _canto_pendiente: Dictionary = {}
 
+# Tutorial (partida guiada, ver scripts/logica/tutorial.gd)
+var tutorial_activo := false
+var _paso := 0
+var _tutorial_hecho := false
+var _burbuja: PanelContainer
+var _burbuja_texto: Label
+var _burbuja_contador: Label
+var _burbuja_aviso: Label
+var _burbuja_continuar: Button
+var _panel_tarjeta: PanelContainer
+var _resalte: Tween = null
+var _nodo_resaltado: CanvasItem = null
+
 # Lecciones
 var _cola_lecciones: Array[String] = []
 var _lecciones_vistas := {}
@@ -68,6 +81,8 @@ var _titulo_tarjeta: Label
 var _mensaje: Label
 var _info_partida: Label
 var _boton_marcador: Button
+var _boton_ordenar: Button
+var _boton_porque: Button
 var _boton_robar: Button
 var _boton_descartar: Button
 var _boton_pasar: Button
@@ -96,9 +111,11 @@ var _analisis_lista: Array[Dictionary] = []
 func _ready() -> void:
 	_cargar_progreso()
 	_crear_interfaz()
-	nueva_partida()
-	if not _nivel_elegido:
-		_abrir_niveles()
+	# La primera vez, se empieza directamente con la partida guiada.
+	if not _tutorial_hecho and not _nivel_elegido:
+		empezar_tutorial()
+	else:
+		nueva_partida()
 
 
 # =============================================================================
@@ -106,6 +123,7 @@ func _ready() -> void:
 # =============================================================================
 
 func nueva_partida() -> void:
+	_salir_del_tutorial()
 	_timer_rivales.stop()
 	_nivel = Niveles.obtener(nivel_id)
 	pausa_rivales = pausa_forzada if pausa_forzada >= 0 else _nivel["pausa"]
@@ -135,12 +153,20 @@ func pasar_fichas() -> void:
 	if error != "":
 		_mostrar_mensaje(error)
 		return
+	if tutorial_activo and not _tutorial_espera("pasar"):
+		return
 	var direccion := charleston.direccion_actual()
-	var recibidas := charleston.pasar(pase)
+	var recibidas := charleston.pasar(pase, Tutorial.pases_forzados(partida) if tutorial_activo else {})
 	seleccion.clear()
 	ids_nuevas.clear()
 	for f in recibidas:
 		ids_nuevas.append(f.id)
+	if tutorial_activo:
+		# En el tutorial se practica un solo pase.
+		_ordenar_mano()
+		_refrescar()
+		_avanzar_tutorial()
+		return
 
 	var texto := "Pasaste %d fichas %s" % [pase.size(), Charleston.FLECHA[direccion]]
 	if recibidas.is_empty():
@@ -151,6 +177,8 @@ func pasar_fichas() -> void:
 
 
 func decidir_segundo_charleston(quiere: bool) -> void:
+	if tutorial_activo and not _tutorial_espera("-"):
+		return
 	charleston.decidir_segundo(quiere)
 	segundo_saltado = not quiere
 	_despues_de_un_paso("Segundo Charleston." if quiere else "Sin segundo Charleston.")
@@ -211,7 +239,7 @@ func _al_terminar_timer_rivales() -> void:
 	if _hay_ventana_abierta():
 		_timer_rivales.start(pausa_rivales)
 		return
-	var r := partida.jugar_turno_rival()
+	var r := Tutorial.turno_rival(partida) if tutorial_activo else partida.jugar_turno_rival()
 	var texto := ""
 	if r["cambios"] > 0:
 		texto = "%s cambió una ficha por un comodín expuesto. " % partida.nombre(r["jugador"])
@@ -228,6 +256,8 @@ func _al_terminar_timer_rivales() -> void:
 
 func robar() -> void:
 	if fase != Fase.ROBAR:
+		return
+	if tutorial_activo and not _tutorial_espera("robar"):
 		return
 	var nueva := partida.robar()
 	if nueva == null or partida.terminada:
@@ -251,6 +281,10 @@ func descartar() -> void:
 		_mostrar_mensaje("Primero toca una ficha para seleccionarla.")
 		return
 	var ficha := elegidas[0]
+	if tutorial_activo:
+		if not _tutorial_espera("descartar"):
+			return
+		_avanzar_tutorial()
 	partida.descartar(ficha)
 	seleccion.clear()
 	ids_nuevas.clear()
@@ -261,6 +295,8 @@ func descartar() -> void:
 
 ## En tu turno (antes de descartar), cambia tu ficha por un comodín de un grupo expuesto.
 func cambiar_comodin() -> void:
+	if tutorial_activo and not _tutorial_espera("-"):
+		return
 	var opciones := partida.cambios_de_comodin(0)
 	if fase != Fase.DESCARTAR or opciones.is_empty():
 		return
@@ -320,6 +356,11 @@ func _tras_descarte() -> void:
 func decidir_canto(respuesta: String, cant: int = 0) -> void:
 	if fase != Fase.DECIDIR_CANTO:
 		return
+	if tutorial_activo:
+		if respuesta != "exponer" or not _tutorial_espera("cantar"):
+			_tutorial_espera("-")
+			return
+		_avanzar_tutorial()
 	var cantos: Array[Dictionary] = _canto_pendiente["rivales"].duplicate()
 	var mio: Dictionary = _canto_pendiente["mio"]
 	if respuesta == "exponer" and cant == 0 and not mio["opciones"].is_empty():
@@ -405,6 +446,8 @@ func _anotar_pagos() -> void:
 
 ## Selecciona las fichas que el asesor recomienda soltar y explica por qué.
 func sugerir() -> void:
+	if tutorial_activo and not _tutorial_espera("-"):
+		return
 	if _sugerencias_restantes == 0:
 		_mostrar_mensaje("No te quedan sugerencias en esta partida (nivel %s)." % _nivel["nombre"])
 		return
@@ -515,6 +558,7 @@ func _cargar_progreso() -> void:
 		nivel_id = config.get_value("partida", "nivel", "facil")
 		_nivel_elegido = config.has_section_key("partida", "nivel")
 		marcador = config.get_value("partida", "marcador", [0, 0, 0, 0])
+		_tutorial_hecho = config.get_value("partida", "tutorial_hecho", false)
 	_nivel = Niveles.obtener(nivel_id)
 
 
@@ -524,7 +568,228 @@ func _guardar_progreso() -> void:
 	if _nivel_elegido:
 		config.set_value("partida", "nivel", nivel_id)
 	config.set_value("partida", "marcador", marcador)
+	config.set_value("partida", "tutorial_hecho", _tutorial_hecho)
 	config.save(ARCHIVO_PROGRESO)
+
+
+# =============================================================================
+#  TUTORIAL (partida guiada)
+# =============================================================================
+
+func empezar_tutorial() -> void:
+	_timer_rivales.stop()
+	_capa_niveles.visible = false
+	_capa_leccion.visible = false
+	_cola_lecciones.clear()
+	tutorial_activo = true
+	_paso = 0
+	# Nivel Fácil, pero sin lecciones emergentes ni «Sugerir»: el globo lo explica todo.
+	_nivel = Niveles.obtener("facil").duplicate()
+	_nivel["explicaciones"] = false
+	_nivel["sugerencias"] = 0
+	pausa_rivales = pausa_forzada if pausa_forzada >= 0 else 1.8
+	_sugerencias_restantes = 0
+	partida = Tutorial.crear_partida(manos_tarjeta)
+	charleston = partida.crear_charleston()
+	mano = partida.manos[0]
+	for m in manos_tarjeta:
+		if m["nombre"] == Tutorial.OBJETIVO:
+			objetivo = m
+	objetivo_elegido = true
+	segundo_saltado = false
+	seleccion.clear()
+	ids_nuevas.clear()
+	_ordenar_mano()
+	fase = Fase.CHARLESTON
+	_burbuja.visible = true
+	_refrescar()
+	_mostrar_paso()
+
+
+func _paso_actual() -> Dictionary:
+	return Tutorial.PASOS[mini(_paso, Tutorial.PASOS.size() - 1)]
+
+
+## ¿El paso actual espera esta acción? Si no, recuerda qué hay que hacer.
+func _tutorial_espera(accion: String) -> bool:
+	if _paso_actual()["espera"] == accion:
+		_burbuja_aviso.visible = false
+		return true
+	_burbuja_aviso.text = "Casi: haz lo que brilla en amarillo."
+	if _paso_actual()["espera"] == "continuar":
+		_burbuja_aviso.text = "Pulsa «Continuar» en este mensaje."
+	elif _paso_actual()["espera"] == "rivales":
+		_burbuja_aviso.text = "Espera un momento: están jugando los demás."
+	_burbuja_aviso.visible = true
+	return false
+
+
+func _avanzar_tutorial() -> void:
+	_paso += 1
+	_mostrar_paso()
+
+
+## Pulsar «Continuar» en el globo.
+func tutorial_continuar() -> void:
+	if not tutorial_activo or _paso_actual()["espera"] != "continuar":
+		return
+	if _paso >= Tutorial.PASOS.size() - 1:
+		_tutorial_hecho = true
+		_guardar_progreso()
+		_salir_del_tutorial()
+		_abrir_niveles()
+		return
+	_avanzar_tutorial()
+	# Al llegar a un paso de "esperar a los rivales" tras el Charleston, empieza el juego.
+	if _paso_actual()["espera"] == "rivales" and fase == Fase.CHARLESTON:
+		charleston.etapa = Charleston.Etapa.TERMINADO
+		ids_nuevas.clear()
+		_siguiente_turno()
+
+
+## Pasa al paso siguiente cuando el juego llega a donde el paso espera.
+func _revisar_tutorial() -> void:
+	if not tutorial_activo:
+		return
+	if fase == Fase.FIN and _paso < Tutorial.PASOS.size() - 1:
+		_paso = Tutorial.PASOS.size() - 1
+		_mostrar_paso()
+	elif _paso_actual()["espera"] == "rivales" and fase in [Fase.DECIDIR_CANTO, Fase.ROBAR]:
+		_avanzar_tutorial()
+
+
+func _mostrar_paso() -> void:
+	var paso := _paso_actual()
+	_burbuja_texto.text = paso["texto"]
+	_burbuja_contador.text = "Paso %d de %d" % [_paso + 1, Tutorial.PASOS.size()]
+	_burbuja_continuar.visible = paso["espera"] == "continuar"
+	_burbuja_continuar.text = "¡Vamos a jugar!" if _paso == Tutorial.PASOS.size() - 1 else "Continuar"
+	_burbuja_aviso.visible = false
+	# Lo que brilla: un panel, la mano o un botón (las fichas se resaltan en _refrescar_mano).
+	_quitar_resalte()
+	var nodo: CanvasItem = null
+	match paso["resaltar"]:
+		"mano":
+			nodo = _fila_mano
+		"tarjeta":
+			nodo = _panel_tarjeta
+		"boton":
+			nodo = {"pasar": _boton_pasar, "cantar": _botones_cantar[3], "descartar": _boton_descartar,
+				"robar": _boton_robar}.get(paso["espera"])
+	if nodo:
+		_nodo_resaltado = nodo
+		_resalte = create_tween().set_loops()
+		_resalte.tween_property(nodo, "modulate", Color(1.35, 1.25, 0.55), 0.45)
+		_resalte.tween_property(nodo, "modulate", Color.WHITE, 0.45)
+	_refrescar_mano()
+
+
+func _quitar_resalte() -> void:
+	if _resalte:
+		_resalte.kill()
+		_resalte = null
+	if _nodo_resaltado:
+		_nodo_resaltado.modulate = Color.WHITE
+		_nodo_resaltado = null
+
+
+## Ids de las fichas que deben brillar en el paso actual.
+func _ids_resaltadas() -> Array[int]:
+	var ids: Array[int] = []
+	if not tutorial_activo:
+		return ids
+	var paso := _paso_actual()
+	if paso["resaltar"] == "nuevas":
+		return ids_nuevas.duplicate()
+	if paso["resaltar"] == "fichas":
+		var pendientes: Array = paso["claves"].duplicate()
+		for f in mano:
+			if f.clave() in pendientes and not f.id in seleccion:
+				pendientes.erase(f.clave())
+				ids.append(f.id)
+	return ids
+
+
+func _salir_del_tutorial() -> void:
+	if not tutorial_activo:
+		return
+	tutorial_activo = false
+	_quitar_resalte()
+	_burbuja.visible = false
+	_mensaje.visible = true
+
+
+## El globo de ayuda del tutorial: grande, claro y siempre en el mismo sitio.
+func _crear_burbuja() -> void:
+	_burbuja = PanelContainer.new()
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color("fbf3e4")
+	estilo.border_color = Color("c2185b")
+	estilo.set_border_width_all(4)
+	estilo.set_corner_radius_all(16)
+	estilo.set_content_margin_all(18)
+	estilo.shadow_color = Color(0, 0, 0, 0.35)
+	estilo.shadow_size = 10
+	_burbuja.add_theme_stylebox_override("panel", estilo)
+	_burbuja.position = Vector2(28, 96)
+	_burbuja.custom_minimum_size = Vector2(650, 0)
+	_burbuja.visible = false
+	add_child(_burbuja)
+
+	var fila := HBoxContainer.new()
+	fila.add_theme_constant_override("separation", 16)
+	_burbuja.add_child(fila)
+	# La "mascota" del tutorial: tu comodín.
+	var comodin := FichaVisual.new(Ficha.desde_clave("comodin"))
+	comodin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	comodin.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	fila.add_child(comodin)
+
+	var caja := VBoxContainer.new()
+	caja.add_theme_constant_override("separation", 10)
+	caja.custom_minimum_size.x = 520
+	fila.add_child(caja)
+	_burbuja_contador = Label.new()
+	_burbuja_contador.add_theme_font_size_override("font_size", 15)
+	_burbuja_contador.add_theme_color_override("font_color", Color("8a6d4d"))
+	caja.add_child(_burbuja_contador)
+	_burbuja_texto = Label.new()
+	_burbuja_texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_burbuja_texto.add_theme_font_size_override("font_size", 23)
+	_burbuja_texto.add_theme_color_override("font_color", Color("3b2a1a"))
+	caja.add_child(_burbuja_texto)
+	_burbuja_aviso = Label.new()
+	_burbuja_aviso.add_theme_font_size_override("font_size", 19)
+	_burbuja_aviso.add_theme_color_override("font_color", Color("c2185b"))
+	_burbuja_aviso.visible = false
+	caja.add_child(_burbuja_aviso)
+
+	var botones := HBoxContainer.new()
+	caja.add_child(botones)
+	var salir := Button.new()
+	salir.text = "Salir del tutorial"
+	salir.flat = true
+	salir.add_theme_color_override("font_color", Color("8a6d4d"))
+	salir.pressed.connect(func():
+		_salir_del_tutorial()
+		_abrir_niveles())
+	botones.add_child(salir)
+	var espacio := Control.new()
+	espacio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	botones.add_child(espacio)
+	_burbuja_continuar = _boton("Continuar", tutorial_continuar, 200)
+	_burbuja_continuar.add_theme_stylebox_override("normal", _estilo_rosa())
+	_burbuja_continuar.add_theme_stylebox_override("hover", _estilo_rosa(0.1))
+	_burbuja_continuar.add_theme_stylebox_override("pressed", _estilo_rosa(-0.15))
+	botones.add_child(_burbuja_continuar)
+
+
+func _estilo_rosa(luz: float = 0.0) -> StyleBoxFlat:
+	var estilo := StyleBoxFlat.new()
+	var base := Color("c2185b")
+	estilo.bg_color = base.lightened(luz) if luz >= 0 else base.darkened(-luz)
+	estilo.set_corner_radius_all(12)
+	return estilo
 
 
 # =============================================================================
@@ -582,6 +847,14 @@ func _crear_ventana_niveles() -> void:
 	titulo.add_theme_font_size_override("font_size", 30)
 	titulo.add_theme_color_override("font_color", Color("ffe082"))
 	caja.add_child(titulo)
+
+	var aprender := _boton("▶  Aprender a jugar: partida guiada paso a paso (5 minutos)", empezar_tutorial, 0)
+	aprender.custom_minimum_size.y = 64
+	aprender.add_theme_font_size_override("font_size", 22)
+	aprender.add_theme_stylebox_override("normal", _estilo_rosa())
+	aprender.add_theme_stylebox_override("hover", _estilo_rosa(0.1))
+	aprender.add_theme_stylebox_override("pressed", _estilo_rosa(-0.15))
+	caja.add_child(aprender)
 
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 16)
@@ -659,6 +932,11 @@ func _crear_ventana_marcador() -> void:
 
 func _al_tocar_ficha(fv: FichaVisual) -> void:
 	var id := fv.ficha.id
+	if tutorial_activo:
+		var paso := _paso_actual()
+		if paso["espera"] != "fichas" or not fv.ficha.clave() in paso["claves"] or id in seleccion:
+			_tutorial_espera("-")
+			return
 	if _pasando_fichas():
 		if fv.ficha.es_comodin():
 			_mostrar_mensaje("Los comodines no se pueden pasar en el Charleston. ¡Guárdalos, valen mucho!")
@@ -687,6 +965,8 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 		_mostrar_mensaje(fv.ficha.nombre() + ". Puedes arrastrar las fichas para ordenarlas a tu gusto.")
 		return
 	_refrescar_mano()
+	if tutorial_activo and _fichas_seleccionadas().size() == _paso_actual()["claves"].size():
+		_avanzar_tutorial()
 
 
 func _al_soltar_ficha(origen: FichaVisual, destino: FichaVisual) -> void:
@@ -698,6 +978,8 @@ func _al_soltar_ficha(origen: FichaVisual, destino: FichaVisual) -> void:
 
 
 func _al_pulsar_ordenar() -> void:
+	if tutorial_activo and not _tutorial_espera("-"):
+		return
 	_ordenar_mano()
 	_refrescar_mano()
 
@@ -732,6 +1014,8 @@ func _refrescar() -> void:
 	_refrescar_tarjeta()
 	_refrescar_mano()
 	_refrescar_panel_izquierdo()
+	_mensaje.visible = not tutorial_activo
+	_revisar_tutorial()
 
 
 func _refrescar_botones() -> void:
@@ -754,6 +1038,9 @@ func _refrescar_botones() -> void:
 	_boton_sugerir.text = "Sugerir" if _sugerencias_restantes < 0 else "Sugerir (%d)" % _sugerencias_restantes
 	_boton_sugerir.disabled = not (_pasando_fichas() or fase == Fase.DESCARTAR) or _sugerencias_restantes == 0
 	_boton_marcador.visible = _nivel["marcador"]
+	# En el tutorial solo se ve lo imprescindible.
+	_boton_ordenar.visible = not tutorial_activo
+	_boton_porque.visible = not tutorial_activo
 
 
 func _refrescar_tarjeta() -> void:
@@ -768,6 +1055,8 @@ func _refrescar_tarjeta() -> void:
 		_analisis_lista.clear()
 		for m in manos_tarjeta:
 			_analisis_lista.append(por_nombre[m["nombre"]])
+	if tutorial_activo:
+		_analisis_lista = _analisis_lista.filter(func(a): return a["mano"]["nombre"] == Tutorial.OBJETIVO)
 	_titulo_tarjeta.text = ("Tus manos más cercanas" if _nivel["consejos"] else "Tarjeta 2026") \
 		+ " (toca una para elegirla como objetivo)"
 	if not objetivo_elegido:
@@ -811,6 +1100,7 @@ func _refrescar_mano() -> void:
 		fv.util = ficha.id in ids_utiles
 		fv.nueva = ficha.id in ids_nuevas
 		fv.seleccionada = ficha.id in seleccion
+		fv.resaltada = ficha.id in _ids_resaltadas()
 		fv.tocada.connect(_al_tocar_ficha)
 		fv.soltada_encima.connect(_al_soltar_ficha)
 		_fila_mano.add_child(fv)
@@ -830,9 +1120,12 @@ func _refrescar_mano() -> void:
 ## El panel de la izquierda muestra los pasos del Charleston o, al jugar, los descartes.
 func _refrescar_panel_izquierdo() -> void:
 	var en_charleston := fase == Fase.CHARLESTON
-	_texto_charleston.visible = en_charleston
-	_zona_descartes.visible = not en_charleston
-	_expuestas_rivales.visible = not en_charleston
+	_texto_charleston.visible = en_charleston and not tutorial_activo
+	_zona_descartes.visible = not en_charleston and not tutorial_activo
+	_expuestas_rivales.visible = not en_charleston and not tutorial_activo
+	if tutorial_activo:
+		_titulo_izquierda.text = ""
+		return
 	if en_charleston:
 		_titulo_izquierda.text = "Charleston: intercambio de fichas"
 		_texto_charleston.text = _texto_pasos_charleston()
@@ -1020,6 +1313,7 @@ func _crear_interfaz() -> void:
 	_zona_descartes.add_child(_fichas_descartadas)
 
 	var panel_tarjeta := _panel("")
+	_panel_tarjeta = panel_tarjeta
 	_titulo_tarjeta = panel_tarjeta.get_child(0).get_child(0) as Label
 	panel_tarjeta.custom_minimum_size.x = 560
 	centro.add_child(panel_tarjeta)
@@ -1070,8 +1364,10 @@ func _crear_interfaz() -> void:
 	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_mahjong] + _botones_cantar.values() + [
 			_boton_no_cantar, _boton_robar, _boton_descartar, _boton_cambiar_comodin, _boton_sugerir]:
 		acciones.add_child(b)
-	acciones.add_child(_boton("Ordenar", _al_pulsar_ordenar))
-	acciones.add_child(_boton("¿Por qué?", func(): mostrar_leccion(_leccion_del_momento(), true)))
+	_boton_ordenar = _boton("Ordenar", _al_pulsar_ordenar)
+	_boton_porque = _boton("¿Por qué?", func(): mostrar_leccion(_leccion_del_momento(), true))
+	acciones.add_child(_boton_ordenar)
+	acciones.add_child(_boton_porque)
 
 	# --- El reloj que marca el ritmo de los rivales ---
 	_timer_rivales = Timer.new()
@@ -1084,6 +1380,7 @@ func _crear_interfaz() -> void:
 	_ventana_tarjeta = VentanaTarjeta.new()
 	_ventana_tarjeta.mano_elegida.connect(_al_elegir_mano_en_tarjeta)
 	add_child(_ventana_tarjeta)
+	_crear_burbuja()
 	_crear_ventana_marcador()
 	_crear_ventana_niveles()
 

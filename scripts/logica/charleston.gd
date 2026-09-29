@@ -99,8 +99,9 @@ func validar_pase(pase: Array[Ficha]) -> String:
 
 
 ## Hace un pase: tú das `pase_jugador` y los rivales eligen sus fichas.
+## `pases_forzados` (asiento -> fichas) fija lo que pasa algún rival (lo usa el tutorial).
 ## Devuelve las fichas que recibes tú.
-func pasar(pase_jugador: Array[Ficha]) -> Array[Ficha]:
+func pasar(pase_jugador: Array[Ficha], pases_forzados: Dictionary = {}) -> Array[Ficha]:
 	assert(validar_pase(pase_jugador) == "", validar_pase(pase_jugador))
 	var direccion := direccion_actual()
 
@@ -111,7 +112,8 @@ func pasar(pase_jugador: Array[Ficha]) -> Array[Ficha]:
 		if etapa == Etapa.CORTESIA:
 			# En la cortesía solo participa el de enfrente, y pasa las mismas que tú.
 			cantidad = pase_jugador.size() if i == ENFRENTE else 0
-		pases[i] = Asesor.fichas_que_sobran(manos[i], manos_tarjeta, cantidad)
+		pases[i] = pases_forzados[i] if pases_forzados.has(i) else \
+			Asesor.fichas_que_sobran(manos[i], manos_tarjeta, cantidad)
 
 	# 2. Cada jugador quita de su mano lo que pasa...
 	for i in 4:

@@ -25,6 +25,7 @@ func _init() -> void:
 	probar_cambio_de_comodin()
 	probar_niveles()
 	probar_puntuacion()
+	probar_tutorial()
 	probar_lecciones()
 
 	print("")
@@ -538,3 +539,51 @@ func probar_puntuacion() -> void:
 	var p4 := Partida.new(Tarjeta.manos(), 0, 9)
 	p4.terminada = true
 	comprobar(p4.calcular_pagos()["pagos"] == [0, 0, 0, 0], "si nadie gana, nadie paga")
+
+
+func probar_tutorial() -> void:
+	print("Tutorial:")
+	var p := Tutorial.crear_partida(Tarjeta.manos())
+	var total := p.mazo.quedan()
+	for m in p.manos:
+		total += m.size()
+	comprobar(total == 152, "la partida preparada tiene las 152 fichas")
+	comprobar(p.manos[0].size() == 13 and p.manos[Tutorial.ESTE].size() == 14, "tú tienes 13 y el Este 14")
+
+	# Charleston: pasas tus 3 fichas inútiles y recibes dos 8 de Nopal.
+	var ch := p.crear_charleston()
+	var pase: Array[Ficha] = []
+	for clave in ["vS", "cir3", "dV"]:
+		for f in p.manos[0]:
+			if f.clave() == clave:
+				pase.append(f)
+				break
+	var recibidas := ch.pasar(pase, Tutorial.pases_forzados(p))
+	var claves := []
+	for f in recibidas:
+		claves.append(f.clave())
+	comprobar(claves == Tutorial.TE_PASAN, "en el Charleston recibes %s" % str(claves))
+
+	# El Este tira el 4 de Nopal y te conviene cantarlo.
+	var r := Tutorial.turno_rival(p)
+	comprobar(r["descartada"].clave() == "bam4", "el Este empieza tirando el 4 de Nopal")
+	var ev := p.evaluar_canto(0, r["descartada"])
+	comprobar(ev["cant"] == 3 and not ev["mahjong"], "te conviene cantar un pung de 4")
+	comprobar(p.cantos_de_rivales().is_empty(), "en el tutorial los rivales nunca cantan")
+	p.cantar(0, 3, false)
+	var car1: Ficha = p.manos[0].filter(func(f): return f.clave() == "car1")[0]
+	p.descartar(car1)
+
+	# Juegan los tres rivales y luego robas el 8 que te falta.
+	for i in 3:
+		var t := Tutorial.turno_rival(p)
+		comprobar(t["descartada"] != null and p.evaluar_canto(0, t["descartada"])["cant"] == 0,
+			"el rival %d tira una ficha que no te sirve" % t["jugador"])
+	comprobar(p.turno == 0 and p.debe_robar(), "vuelve a ser tu turno")
+	var robada := p.robar()
+	comprobar(robada.clave() == "bam8", "robas el 8 de Nopal")
+	comprobar(p.ganador == 0 and p.mano_ganadora["nombre"] == Tutorial.OBJETIVO, "¡ganas con «Pares del 2 al 8»!")
+	var pasos_ok := true
+	for paso in Tutorial.PASOS:
+		pasos_ok = pasos_ok and paso.has("texto") and paso.has("espera") and paso.has("resaltar")
+	comprobar(pasos_ok, "los %d pasos del tutorial están completos" % Tutorial.PASOS.size())

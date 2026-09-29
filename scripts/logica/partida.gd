@@ -37,7 +37,8 @@ var ganador := -1
 var mano_ganadora: Dictionary = {}
 ## Quién descartó la ficha con la que se hizo Mahjong (-1 si la robó del muro).
 var mahjong_con_descarte_de := -1
-## Cómo juegan los rivales: "tranquilos", "normales" o "expertos" (ver niveles.gd).
+## Cómo juegan los rivales: "tranquilos", "normales" o "expertos" (ver niveles.gd),
+## o "tutorial" (siguen el guion de tutorial.gd).
 var nivel_rivales := "normales"
 var _rng := RandomNumberGenerator.new()
 
@@ -171,7 +172,8 @@ func evaluar_canto(jugador: int, ficha: Ficha) -> Dictionary:
 ## Con `incluir_asiento_0` también decide la máquina por ti (para simular partidas).
 func cantos_de_rivales(incluir_asiento_0: bool = false) -> Array[Dictionary]:
 	var cantos: Array[Dictionary] = []
-	if descartes.is_empty():
+	# En el tutorial los rivales siguen un guion y nunca cantan.
+	if descartes.is_empty() or nivel_rivales == "tutorial":
 		return cantos
 	var ultimo: Dictionary = descartes.back()
 	for j in range(0 if incluir_asiento_0 else 1, 4):

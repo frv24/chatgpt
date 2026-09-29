@@ -35,6 +35,13 @@ var nueva := false:
 	set(v):
 		nueva = v
 		_actualizar_estilo()
+## Si es true, la ficha brilla con un pulso amarillo (el tutorial señala qué tocar).
+var resaltada := false:
+	set(v):
+		resaltada = v
+		_actualizar_pulso()
+var _brillo := 0.0
+var _pulso: Tween = null
 ## Si es false, la ficha se atenúa (consejo: "esta ficha puedes descartarla").
 var mostrar_consejo := false:
 	set(v):
@@ -91,7 +98,7 @@ func _ready() -> void:
 		_caja_textos.visible = false
 	else:
 		_actualizar_texto()
-	_actualizar_estilo()
+	_actualizar_pulso()
 	tooltip_text = ficha.nombre()
 
 
@@ -135,13 +142,16 @@ func _actualizar_estilo() -> void:
 	if seleccionada:
 		estilo.border_color = Color("f2a900")
 		estilo.set_border_width_all(5)
+	if resaltada and not seleccionada:
+		estilo.border_color = Color("fff176").lerp(Color("ff9800"), _brillo)
+		estilo.set_border_width_all(6)
 	add_theme_stylebox_override("panel", estilo)
 	if _imagen:
 		# Con diseño, las fichas nuevas se tiñen de amarillo.
 		_imagen.self_modulate = Color(1, 0.93, 0.55) if nueva else Color.WHITE
 	# Las fichas que no sirven se ven más apagadas cuando los consejos están activos
 	# (salvo las nuevas y las seleccionadas, que deben verse bien).
-	var apagada := mostrar_consejo and not util and not nueva and not seleccionada
+	var apagada := mostrar_consejo and not util and not nueva and not seleccionada and not resaltada
 	modulate = Color(1, 1, 1, 0.55) if apagada else Color.WHITE
 
 
@@ -170,3 +180,19 @@ func _can_drop_data(_posicion: Vector2, datos: Variant) -> bool:
 
 func _drop_data(_posicion: Vector2, datos: Variant) -> void:
 	soltada_encima.emit(datos, self)
+
+
+func _actualizar_pulso() -> void:
+	if _pulso:
+		_pulso.kill()
+		_pulso = null
+	if resaltada and is_inside_tree():
+		_pulso = create_tween().set_loops()
+		_pulso.tween_method(_poner_brillo, 0.0, 1.0, 0.45)
+		_pulso.tween_method(_poner_brillo, 1.0, 0.0, 0.45)
+	_actualizar_estilo()
+
+
+func _poner_brillo(valor: float) -> void:
+	_brillo = valor
+	_actualizar_estilo()

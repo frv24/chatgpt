@@ -39,6 +39,11 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - El botón **¿Por qué?** explica el paso actual en cualquier momento.
   - El botón **Reglas** reúne todas las lecciones para repasarlas.
   - El interruptor **Explicaciones** las desactiva; la app recuerda cuáles ya viste.
+- **Tutorial «Aprender a jugar»**: una partida preparada de 15 pasos con un globo de ayuda.
+  Lo que hay que tocar brilla en amarillo y solo eso funciona. Enseña la mano, la tarjeta,
+  el Charleston, cantar, descartar y robar, y termina con tu primer Mahjong.
+  Sale solo la primera vez y después está en «Nueva partida». Sus textos y fichas están en
+  `scripts/logica/tutorial.gd`.
 - **4 niveles** (se eligen en «Nueva partida»; se configuran en `scripts/logica/niveles.gd`):
   - **Fácil**: todas las ayudas y rivales tranquilos (no exponen grupos y a veces tiran sin pensar).
   - **Normal**: todas las ayudas y rivales que juegan de verdad.
@@ -68,6 +73,7 @@ scripts/logica/          Reglas del juego (no dibujan nada)
   partida.gd             Reparto, turnos y final de la partida
   lecciones.gd           Los textos del "¿por qué?" (edítalos aquí)
   niveles.gd             Los 4 niveles y sus ayudas (edítalos aquí)
+  tutorial.gd            La partida guiada: fichas preparadas y textos de cada paso
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
@@ -100,7 +106,7 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [x] Cantar descartes (pung, kong, quint, Mahjong) y mostrar los grupos expuestos
 - [x] Cambiar comodines expuestos
 - [x] Niveles Fácil, Normal, Intermedio y Experto, con puntos y marcador en los dos últimos
-- [ ] Tutorial interactivo
+- [x] Tutorial interactivo «Aprender a jugar»
 - [x] Diseños propios de las fichas (tema mexicano: Nopal, Picado, Sol…; ver `assets/fichas/LEEME.md`)
 - [ ] Sonidos y animaciones
 - [ ] Exportar a Android (Proyecto > Exportar) y después a iOS
