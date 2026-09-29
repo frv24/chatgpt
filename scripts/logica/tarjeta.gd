@@ -98,8 +98,8 @@ static func manos() -> Array[Dictionary]:
 		{
 			"nombre": "Año 2026",
 			"patron": "222 0000 222 6666",
-			"explicacion": "Pungs de 2 en dos palos distintos, kong de dragón blanco (hace de 0) y kong de 6 en el tercer palo.",
-			"consejo": "El dragón blanco hace de cero. Cada grupo de números va en un palo diferente.",
+			"explicacion": "Pungs de 2 en dos palos distintos, kong de Blanco (hace de 0) y kong de 6 en el tercer palo.",
+			"consejo": "El Blanco hace de cero. Cada grupo de números va en un palo diferente.",
 			"oculta": false,
 			"puntos": 25,
 			"grupos": [num(3, "A", 2), dragon(4, "B"), num(3, "B", 2), num(4, "C", 6)],
@@ -119,7 +119,7 @@ static func manos() -> Array[Dictionary]:
 		{
 			"nombre": "Tres dragones",
 			"patron": "FFF DDDD DDDD DDD",
-			"explicacion": "Tres flores y los tres dragones: dos kongs y un pung.",
+			"explicacion": "Tres flores (cempasúchil) y los tres dragones (Chile, Maguey y Blanco): dos kongs y un pung.",
 			"consejo": "Los dragones y las flores suelen descartarse pronto: ¡estate atento para cantarlos!",
 			"oculta": false,
 			"puntos": 30,

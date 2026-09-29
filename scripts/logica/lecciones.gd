@@ -12,7 +12,7 @@ extends RefCounted
 
 ## Orden en el que aparecen en el botón «Reglas».
 const ORDEN := [
-	"preparar_mesa", "asientos",
+	"preparar_mesa", "las_fichas", "asientos",
 	"charleston", "charleston_direcciones", "comodines_charleston",
 	"ultimo_pase", "segundo_charleston", "cortesia",
 	"turnos", "descartes_rivales",
@@ -25,6 +25,11 @@ const TODAS := {
 		"titulo": "Antes de empezar: preparar la mesa",
 		"texto": "El Mahjong americano se juega entre 4 personas con 152 fichas. Se ponen todas boca abajo y se mezclan. Después cada jugador construye delante de sí un muro de 19 columnas de 2 fichas (38 fichas cada uno).",
 		"mesa": "El Este tira los dados para saber por dónde se abre el muro. Luego cada jugador coge 4 fichas, tres veces seguidas (12), y después 1 más (13). El Este coge una ficha extra: empieza con 14. En esta app el reparto se hace solo.",
+	},
+	"las_fichas": {
+		"titulo": "Conoce las fichas",
+		"texto": "• 3 PALOS con números del 1 al 9 (4 copias de cada): NOPAL (verde), PICADO (rosa) y SOL (naranja).\n• 4 VIENTOS: Norte, Este, Oeste y Sur.\n• 3 DRAGONES: CHILE, MAGUEY y BLANCO. El Blanco también hace de \"0\" en las manos de años, como 2026.\n• 8 FLORES (cempasúchil), todas iguales entre sí.\n• 8 COMODINES: sustituyen a cualquier ficha en grupos de 3 o más.",
+		"mesa": "En los juegos tradicionales los palos se llaman Bambú (= Nopal), Carácter (= Picado) y Círculo (= Sol), y los dragones Verde (= Maguey), Rojo (= Chile) y Blanco. En inglés: Bam, Crak, Dot; Green, Red y Soap. Cada dragón va con un palo: Maguey con Nopal, Chile con Picado y Blanco con Sol.",
 	},
 	"asientos": {
 		"titulo": "Los asientos y los vientos",
@@ -64,11 +69,11 @@ const TODAS := {
 	"turnos": {
 		"titulo": "Empieza el juego: los turnos",
 		"texto": "El Este empieza: como tiene 14 fichas, descarta una sin robar. Después el turno pasa a la DERECHA. En tu turno: 1) robas una ficha del muro; 2) si tus 14 fichas forman una mano de la tarjeta, ¡Mahjong!; 3) si no, descartas una y vuelves a 13.",
-		"mesa": "Al descartar, di en voz alta el nombre de la ficha (\"¡5 bambú!\") y déjala boca arriba en el centro de la mesa. Así todos saben qué se ha tirado.",
+		"mesa": "Al descartar, di en voz alta el nombre de la ficha (\"¡5 de Sol!\") y déjala boca arriba en el centro de la mesa. Así todos saben qué se ha tirado.",
 	},
 	"descartes_rivales": {
 		"titulo": "Fíjate en los descartes de los demás",
-		"texto": "Los descartes dan pistas. Si alguien tira muchos bambúes, seguramente no juega a bambúes. Y si un rival no tira nunca dragones, quizá los esté juntando: ten cuidado al descartarlos tú.",
+		"texto": "Los descartes dan pistas. Si alguien tira muchos Nopales, seguramente no juega a Nopal. Y si un rival no tira nunca dragones (Chile, Maguey, Blanco), quizá los esté juntando: ten cuidado al descartarlos tú.",
 		"mesa": "Pronto podrás \"cantar\" un descarte: coger la ficha que otro acaba de tirar para completar un grupo tuyo.",
 	},
 	"cantar": {

@@ -14,11 +14,11 @@ const TAMANO := Vector2(64, 88)
 
 # Color del texto según el tipo de ficha.
 const COLOR_PALO := {
-	"bam": Color("1b7a3a"),  # bambúes en verde
-	"car": Color("b3261e"),  # caracteres en rojo
-	"cir": Color("1f4fa3"),  # círculos en azul
+	"bam": Color("1f6b3f"),  # Nopal en verde
+	"car": Color("c2185b"),  # Picado en rosa mexicano
+	"cir": Color("b5441f"),  # Sol en naranja
 }
-const SIMBOLO_PALO := {"bam": "Bam", "car": "Car", "cir": "Cír"}
+const SIMBOLO_PALO := {"bam": "Nopal", "car": "Picado", "cir": "Sol"}
 
 var ficha: Ficha
 var seleccionada := false:
@@ -107,8 +107,8 @@ func _actualizar_texto() -> void:
 			_etiqueta_pequena.text = "Viento"
 		Ficha.Tipo.DRAGON:
 			_etiqueta_grande.text = "D"
-			_etiqueta_pequena.text = {"R": "Rojo", "V": "Verde", "B": "Blanco"}[ficha.palo]
-			color = {"R": COLOR_PALO["car"], "V": COLOR_PALO["bam"], "B": COLOR_PALO["cir"]}[ficha.palo]
+			_etiqueta_pequena.text = Ficha.NOMBRE_DRAGON[ficha.palo]
+			color = {"R": Color("b3261e"), "V": COLOR_PALO["bam"], "B": Color("1f4fa3")}[ficha.palo]
 		Ficha.Tipo.FLOR:
 			_etiqueta_grande.text = "✿"
 			_etiqueta_pequena.text = "Flor"

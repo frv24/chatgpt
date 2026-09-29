@@ -11,14 +11,19 @@ extends RefCounted
 
 enum Tipo { NUMERO, VIENTO, DRAGON, FLOR, COMODIN }
 
-# Palos numéricos. Cada palo tiene un dragón "hermano":
-# bambúes -> verde, caracteres -> rojo, círculos -> blanco.
+# Palos numéricos. En el código usamos las claves clásicas ("bam", "car", "cir"),
+# pero en pantalla se muestran los nombres del diseño de las fichas:
+#   bam (bambú)    -> Nopal
+#   car (carácter) -> Picado
+#   cir (círculo)  -> Sol
+# Cada palo tiene un dragón "hermano": Nopal -> Maguey (verde),
+# Picado -> Chile (rojo), Sol -> Blanco.
 const PALOS := ["bam", "car", "cir"]
 const DRAGON_DEL_PALO := {"bam": "V", "car": "R", "cir": "B"}
 
-const NOMBRE_PALO := {"bam": "Bambú", "car": "Carácter", "cir": "Círculo"}
+const NOMBRE_PALO := {"bam": "Nopal", "car": "Picado", "cir": "Sol"}
 const NOMBRE_VIENTO := {"N": "Norte", "E": "Este", "O": "Oeste", "S": "Sur"}
-const NOMBRE_DRAGON := {"R": "Dragón rojo", "V": "Dragón verde", "B": "Dragón blanco"}
+const NOMBRE_DRAGON := {"R": "Chile", "V": "Maguey", "B": "Blanco"}
 
 var tipo: Tipo
 ## Para NUMERO: "bam", "car" o "cir". Para VIENTO: "N", "E", "O" o "S".
@@ -69,7 +74,7 @@ func nombre() -> String:
 		Tipo.DRAGON:
 			return NOMBRE_DRAGON[palo]
 		Tipo.FLOR:
-			return "Flor"
+			return "Cempasúchil"
 		_:
 			return "Comodín"
 

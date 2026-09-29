@@ -101,7 +101,7 @@ func nueva_partida() -> void:
 	fase = Fase.CHARLESTON
 	_mostrar_mensaje("Eres %s. Empieza el Charleston: mira la tarjeta, elige tu mano objetivo y toca 3 fichas que no te sirvan." % partida.viento(0))
 	_refrescar()
-	for clave in ["preparar_mesa", "asientos", "charleston", "charleston_direcciones"]:
+	for clave in ["preparar_mesa", "las_fichas", "asientos", "charleston", "charleston_direcciones"]:
 		mostrar_leccion(clave)
 
 

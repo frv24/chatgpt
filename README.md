@@ -10,6 +10,7 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
 
 ## Qué hay ya hecho
 - **Las 152 fichas**: barajar y repartir.
+- **Fichas con diseño propio** (tema mexicano): palos Nopal, Picado y Sol; dragones Chile, Maguey y Blanco; flores de cempasúchil.
 - **Tarjeta de principiante**: 7 manos inventadas al estilo de la tarjeta oficial.
 - **Validador de manos**, que ya aplica las reglas de los comodines: solo valen en grupos de 3 o más.
 - **Charleston completo**, guiado paso a paso:
@@ -85,5 +86,6 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [x] Cantar descartes (pung, kong, quint, Mahjong) y mostrar los grupos expuestos
 - [x] Cambiar comodines expuestos
 - [ ] Tutorial interactivo y niveles de ayuda (Aprendiz, Intermedio, Experto)
-- [ ] Dibujos de las fichas (el juego ya los carga solo: ver `assets/fichas/LEEME.md`), sonidos y animaciones
+- [x] Diseños propios de las fichas (tema mexicano: Nopal, Picado, Sol…; ver `assets/fichas/LEEME.md`)
+- [ ] Sonidos y animaciones
 - [ ] Exportar a Android (Proyecto > Exportar) y después a iOS

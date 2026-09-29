@@ -79,7 +79,7 @@ func probar_mazo() -> void:
 	var c := Validador.contar(mazo.fichas)
 	comprobar(c["comodines"] == 8, "hay 8 comodines")
 	comprobar(c["conteo"]["flor"] == 8, "hay 8 flores")
-	comprobar(c["conteo"]["bam5"] == 4, "hay 4 copias de bambú 5")
+	comprobar(c["conteo"]["bam5"] == 4, "hay 4 copias de Nopal 5")
 	comprobar(c["conteo"]["dB"] == 4, "hay 4 dragones blancos")
 	var ids := {}
 	for f in mazo.fichas:
