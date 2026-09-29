@@ -30,6 +30,11 @@ var util := false:
 	set(v):
 		util = v
 		_actualizar_estilo()
+## Si es true, se pinta con fondo amarillo: es una ficha que acabas de recibir.
+var nueva := false:
+	set(v):
+		nueva = v
+		_actualizar_estilo()
 ## Si es false, la ficha se atenúa (consejo: "esta ficha puedes descartarla").
 var mostrar_consejo := false:
 	set(v):
@@ -92,7 +97,7 @@ func _actualizar_texto() -> void:
 
 func _actualizar_estilo() -> void:
 	var estilo := StyleBoxFlat.new()
-	estilo.bg_color = Color("fbf6e9")  # color marfil de ficha
+	estilo.bg_color = Color("fff1a8") if nueva else Color("fbf6e9")  # amarillo o marfil
 	estilo.set_corner_radius_all(8)
 	estilo.set_border_width_all(2)
 	estilo.border_color = Color("9e9480")
@@ -103,8 +108,10 @@ func _actualizar_estilo() -> void:
 		estilo.border_color = Color("f2a900")
 		estilo.set_border_width_all(5)
 	add_theme_stylebox_override("panel", estilo)
-	# Las fichas que no sirven se ven más apagadas cuando los consejos están activos.
-	modulate = Color(1, 1, 1, 0.55) if mostrar_consejo and not util else Color.WHITE
+	# Las fichas que no sirven se ven más apagadas cuando los consejos están activos
+	# (salvo las nuevas y las seleccionadas, que deben verse bien).
+	var apagada := mostrar_consejo and not util and not nueva and not seleccionada
+	modulate = Color(1, 1, 1, 0.55) if apagada else Color.WHITE
 
 
 func _gui_input(evento: InputEvent) -> void:

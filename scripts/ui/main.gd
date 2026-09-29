@@ -2,39 +2,54 @@ extends Control
 ## Pantalla principal: modo SOLITARIO para aprender.
 ##
 ## Cómo se juega:
-##   1. Recibes 13 fichas.
-##   2. En cada turno robas 1 ficha (tienes 14) y descartas 1 (vuelves a 13).
-##   3. Ganas cuando tus 14 fichas forman una mano de la tarjeta.
+##   1. Recibes 13 fichas (y los 3 rivales de la máquina, otras 13 cada uno).
+##   2. CHARLESTON: intercambias fichas con los rivales para mejorar tu mano.
+##   3. En cada turno robas 1 ficha (tienes 14) y descartas 1 (vuelves a 13).
+##   4. Ganas cuando tus 14 fichas forman una mano de la tarjeta.
+##   (Los rivales todavía no juegan turnos: solo participan en el Charleston).
 ##
 ## Toda la interfaz se crea desde código para que puedas leerla de arriba abajo.
 ## (Cuando te sientas cómodo con Godot, puedes rehacerla en el editor visual).
 
-enum Fase { ROBAR, DESCARTAR, FIN }
+enum Fase { CHARLESTON, ROBAR, DESCARTAR, FIN }
 
 const COLOR_FONDO := Color("0f5132")  # verde tapete
 
 var mazo: Mazo
 var mano: Array[Ficha] = []
 var descartes: Array[Ficha] = []
-var fase := Fase.ROBAR
+var fase := Fase.CHARLESTON
 var manos_tarjeta := Tarjeta.manos()
+var charleston: Charleston
+## true si el jugador decidió no hacer el segundo Charleston.
+var segundo_saltado := false
 
 ## Mano de la tarjeta que el jugador intenta conseguir (para los consejos).
 var objetivo: Dictionary = {}
 ## Si es true, el jugador eligió el objetivo a mano y no lo cambiamos solos.
 var objetivo_elegido := false
-var seleccionada: FichaVisual = null
+## Ids de las fichas seleccionadas (1 para descartar, hasta 3 en el Charleston).
+var seleccion: Array[int] = []
+## Ids de las fichas recién recibidas o robadas (se pintan en amarillo).
+var ids_nuevas: Array[int] = []
 
 # Nodos de la interfaz (se crean en _crear_interfaz).
 var _fila_mano: HBoxContainer
-var _zona_descartes: HFlowContainer
+var _titulo_izquierda: Label
+var _zona_descartes: ScrollContainer
+var _fichas_descartadas: HFlowContainer
+var _texto_charleston: Label
 var _lista_tarjeta: ItemList
 var _texto_objetivo: Label
 var _mensaje: Label
 var _info_muro: Label
+var _interruptor_consejos: CheckButton
 var _boton_robar: Button
 var _boton_descartar: Button
-var _interruptor_consejos: CheckButton
+var _boton_pasar: Button
+var _boton_sugerir: Button
+var _boton_segundo_si: Button
+var _boton_segundo_no: Button
 ## Análisis de cada fila de la lista de la tarjeta (mismo orden que la lista).
 var _analisis_lista: Array[Dictionary] = []
 
@@ -51,15 +66,64 @@ func _ready() -> void:
 func nueva_partida() -> void:
 	mazo = Mazo.new()
 	mazo.barajar()
-	mano = mazo.repartir(13)
+	# Se reparten 13 fichas a cada uno de los 4 jugadores (0 = tú).
+	var manos := [mazo.repartir(13), mazo.repartir(13), mazo.repartir(13), mazo.repartir(13)]
+	charleston = Charleston.new(manos, manos_tarjeta)
+	mano = charleston.mano_jugador()
 	descartes.clear()
 	objetivo_elegido = false
-	seleccionada = null
+	segundo_saltado = false
+	seleccion.clear()
+	ids_nuevas.clear()
 	_ordenar_mano()
-	fase = Fase.ROBAR
-	_mostrar_mensaje("Tienes 13 fichas. Pulsa «Robar» para coger una del muro.")
+	fase = Fase.CHARLESTON
+	_mostrar_mensaje("Empieza el Charleston. Mira la tarjeta, elige tu mano objetivo y toca 3 fichas que no te sirvan.")
 	_refrescar()
 
+
+# --- Charleston ---
+
+func pasar_fichas() -> void:
+	if fase != Fase.CHARLESTON:
+		return
+	var pase := _fichas_seleccionadas()
+	var error := charleston.validar_pase(pase)
+	if error != "":
+		_mostrar_mensaje(error)
+		return
+	var direccion := charleston.direccion_actual()
+	var recibidas := charleston.pasar(pase)
+	seleccion.clear()
+	ids_nuevas.clear()
+	for f in recibidas:
+		ids_nuevas.append(f.id)
+
+	var texto := "Pasaste %d fichas %s" % [pase.size(), Charleston.FLECHA[direccion]]
+	if recibidas.is_empty():
+		texto += " y no recibiste ninguna."
+	else:
+		texto += " y recibiste: %s (en amarillo)." % _nombres(recibidas)
+	_despues_de_un_paso(texto)
+
+
+func decidir_segundo_charleston(quiere: bool) -> void:
+	charleston.decidir_segundo(quiere)
+	segundo_saltado = not quiere
+	_despues_de_un_paso("Segundo Charleston." if quiere else "Sin segundo Charleston.")
+
+
+func _despues_de_un_paso(texto: String) -> void:
+	if charleston.terminado():
+		fase = Fase.ROBAR
+		texto += " ¡Charleston terminado! Pulsa «Robar» para empezar a jugar."
+	else:
+		var descripcion := charleston.descripcion()
+		texto += " " + descripcion + ("" if descripcion.ends_with("?") else ".")
+	_mostrar_mensaje(texto)
+	_refrescar()
+
+
+# --- Turnos de juego ---
 
 func robar() -> void:
 	if fase != Fase.ROBAR:
@@ -71,6 +135,8 @@ func robar() -> void:
 		_refrescar()
 		return
 	mano.append(nueva)
+	ids_nuevas.clear()
+	ids_nuevas.append(nueva.id)
 
 	var ganadora := Validador.buscar_mano_ganadora(mano, manos_tarjeta)
 	if not ganadora.is_empty():
@@ -85,13 +151,15 @@ func robar() -> void:
 func descartar() -> void:
 	if fase != Fase.DESCARTAR:
 		return
-	if seleccionada == null:
+	var elegidas := _fichas_seleccionadas()
+	if elegidas.is_empty():
 		_mostrar_mensaje("Primero toca una ficha para seleccionarla.")
 		return
-	var ficha := seleccionada.ficha
+	var ficha := elegidas[0]
 	mano.erase(ficha)
 	descartes.append(ficha)
-	seleccionada = null
+	seleccion.clear()
+	ids_nuevas.clear()
 	fase = Fase.ROBAR
 	var aviso := ""
 	if ficha.es_comodin():
@@ -100,8 +168,39 @@ func descartar() -> void:
 	_refrescar()
 
 
+## Selecciona las fichas que el asesor recomienda soltar y explica por qué.
+func sugerir() -> void:
+	var cantidad := 1 if fase == Fase.DESCARTAR else Charleston.FICHAS_POR_PASE
+	var sugeridas := Asesor.fichas_que_sobran(mano, manos_tarjeta, cantidad)
+	seleccion.clear()
+	for f in sugeridas:
+		seleccion.append(f.id)
+	var boton := "«Descartar»" if fase == Fase.DESCARTAR else "«Pasar»"
+	_mostrar_mensaje("%s Pulsa %s si estás de acuerdo." % [Asesor.explicar(sugeridas, mano, manos_tarjeta), boton])
+	_refrescar_mano()
+
+
 func _ordenar_mano() -> void:
 	mano.sort_custom(func(a: Ficha, b: Ficha): return a.orden() < b.orden())
+
+
+func _fichas_seleccionadas() -> Array[Ficha]:
+	var elegidas: Array[Ficha] = []
+	for f in mano:
+		if f.id in seleccion:
+			elegidas.append(f)
+	return elegidas
+
+
+func _pasando_fichas() -> bool:
+	return fase == Fase.CHARLESTON and charleston.etapa != Charleston.Etapa.PREGUNTA_SEGUNDO
+
+
+func _nombres(fichas: Array[Ficha]) -> String:
+	var nombres: Array[String] = []
+	for f in fichas:
+		nombres.append(f.nombre())
+	return ", ".join(nombres)
 
 
 # =============================================================================
@@ -109,13 +208,27 @@ func _ordenar_mano() -> void:
 # =============================================================================
 
 func _al_tocar_ficha(fv: FichaVisual) -> void:
-	if fase != Fase.DESCARTAR:
+	var id := fv.ficha.id
+	if _pasando_fichas():
+		if fv.ficha.es_comodin():
+			_mostrar_mensaje("Los comodines no se pueden pasar en el Charleston. ¡Guárdalos, valen mucho!")
+			return
+		if id in seleccion:
+			seleccion.erase(id)
+		elif seleccion.size() >= Charleston.FICHAS_POR_PASE:
+			_mostrar_mensaje("Ya elegiste 3 fichas. Toca una elegida para quitarla, o pulsa «Pasar».")
+			return
+		else:
+			seleccion.append(id)
+		_mostrar_mensaje("%s · Elegidas: %d de 3." % [charleston.descripcion(), seleccion.size()])
+	elif fase == Fase.DESCARTAR:
+		var ya_estaba := id in seleccion
+		seleccion.clear()
+		if not ya_estaba:
+			seleccion.append(id)
+	else:
 		_mostrar_mensaje(fv.ficha.nombre() + ". Puedes arrastrar las fichas para ordenarlas a tu gusto.")
 		return
-	if seleccionada == fv:
-		seleccionada = null
-	else:
-		seleccionada = fv
 	_refrescar_mano()
 
 
@@ -144,11 +257,23 @@ func _al_elegir_objetivo(indice: int) -> void:
 
 func _refrescar() -> void:
 	_info_muro.text = "Fichas en el muro: %d" % mazo.quedan()
-	_boton_robar.disabled = fase != Fase.ROBAR
-	_boton_descartar.disabled = fase != Fase.DESCARTAR
+	_refrescar_botones()
 	_refrescar_tarjeta()
 	_refrescar_mano()
-	_refrescar_descartes()
+	_refrescar_panel_izquierdo()
+
+
+func _refrescar_botones() -> void:
+	var en_charleston := fase == Fase.CHARLESTON
+	var pregunta := en_charleston and charleston.etapa == Charleston.Etapa.PREGUNTA_SEGUNDO
+	_boton_pasar.visible = _pasando_fichas()
+	_boton_segundo_si.visible = pregunta
+	_boton_segundo_no.visible = pregunta
+	_boton_robar.visible = not en_charleston
+	_boton_descartar.visible = not en_charleston
+	_boton_robar.disabled = fase != Fase.ROBAR
+	_boton_descartar.disabled = fase != Fase.DESCARTAR
+	_boton_sugerir.disabled = not (_pasando_fichas() or fase == Fase.DESCARTAR)
 
 
 func _refrescar_tarjeta() -> void:
@@ -182,22 +307,29 @@ func _refrescar_mano() -> void:
 	if consejos:
 		ids_utiles = Validador.ids_utiles(mano, Validador.analizar(mano, objetivo))
 
-	var id_seleccionada := seleccionada.ficha.id if seleccionada else -1
-	seleccionada = null
 	for ficha in mano:
 		var fv := FichaVisual.new(ficha)
 		fv.mostrar_consejo = consejos
 		fv.util = ficha.id in ids_utiles
-		if ficha.id == id_seleccionada:
-			fv.seleccionada = true
-			seleccionada = fv
+		fv.nueva = ficha.id in ids_nuevas
+		fv.seleccionada = ficha.id in seleccion
 		fv.tocada.connect(_al_tocar_ficha)
 		fv.soltada_encima.connect(_al_soltar_ficha)
 		_fila_mano.add_child(fv)
 
 
-func _refrescar_descartes() -> void:
-	for hijo in _zona_descartes.get_children():
+## El panel de la izquierda muestra los pasos del Charleston o, al jugar, los descartes.
+func _refrescar_panel_izquierdo() -> void:
+	var en_charleston := fase == Fase.CHARLESTON
+	_texto_charleston.visible = en_charleston
+	_zona_descartes.visible = not en_charleston
+	if en_charleston:
+		_titulo_izquierda.text = "Charleston: intercambio de fichas"
+		_texto_charleston.text = _texto_pasos_charleston()
+		return
+
+	_titulo_izquierda.text = "Descartes"
+	for hijo in _fichas_descartadas.get_children():
 		hijo.queue_free()
 	for ficha in descartes:
 		var fv := FichaVisual.new(ficha)
@@ -207,7 +339,39 @@ func _refrescar_descartes() -> void:
 		var hueco := Control.new()
 		hueco.custom_minimum_size = FichaVisual.TAMANO * 0.7
 		hueco.add_child(fv)
-		_zona_descartes.add_child(hueco)
+		_fichas_descartadas.add_child(hueco)
+
+
+## Lista de pasos con marcas: ✓ hecho, ▶ ahora, (vacío) pendiente.
+func _texto_pasos_charleston() -> String:
+	var etapa := charleston.etapa
+	var lineas: Array[String] = ["Primer Charleston (obligatorio):"]
+	for i in 3:
+		var marca := "   "
+		if etapa != Charleston.Etapa.PRIMERO or i < charleston.indice_pase:
+			marca = "✓"
+		elif i == charleston.indice_pase:
+			marca = "▶"
+		var d: int = Charleston.ORDEN_PRIMERO[i]
+		lineas.append("   %s  %d. Pasar a %s %s" % [marca, i + 1, Charleston.NOMBRE_DIRECCION[d], Charleston.FLECHA[d]])
+
+	lineas.append("Segundo Charleston (opcional):" + ("   saltado" if segundo_saltado else ""))
+	if not segundo_saltado:
+		for i in 3:
+			var marca := "   "
+			if etapa == Charleston.Etapa.CORTESIA or (etapa == Charleston.Etapa.SEGUNDO and i < charleston.indice_pase):
+				marca = "✓"
+			elif etapa == Charleston.Etapa.SEGUNDO and i == charleston.indice_pase:
+				marca = "▶"
+			var d: int = Charleston.ORDEN_SEGUNDO[i]
+			lineas.append("   %s  %d. Pasar a %s %s" % [marca, i + 4, Charleston.NOMBRE_DIRECCION[d], Charleston.FLECHA[d]])
+
+	lineas.append("Pase de cortesía: 0 a 3 fichas ENFRENTE ↑" + ("   ▶" if etapa == Charleston.Etapa.CORTESIA else ""))
+	lineas.append("")
+	lineas.append("¿Para qué sirve? Para cambiar las fichas que no te sirven por otras que quizá sí.")
+	lineas.append("Truco: elige tu mano objetivo en la tarjeta y pasa lo que no encaje (lo apagado).")
+	lineas.append("Los comodines nunca se pueden pasar.")
+	return "\n".join(lineas)
 
 
 func _mostrar_mensaje(texto: String) -> void:
@@ -255,21 +419,26 @@ func _crear_interfaz() -> void:
 	barra.add_child(_interruptor_consejos)
 	barra.add_child(_boton("Nueva partida", nueva_partida))
 
-	# --- Zona central: descartes a la izquierda, tarjeta a la derecha ---
+	# --- Zona central: Charleston/descartes a la izquierda, tarjeta a la derecha ---
 	var centro := HBoxContainer.new()
 	centro.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	centro.add_theme_constant_override("separation", 16)
 	columna.add_child(centro)
 
-	var panel_descartes := _panel("Descartes")
-	panel_descartes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	centro.add_child(panel_descartes)
-	var desplazamiento := ScrollContainer.new()
-	desplazamiento.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel_descartes.get_child(0).add_child(desplazamiento)
-	_zona_descartes = HFlowContainer.new()
-	_zona_descartes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desplazamiento.add_child(_zona_descartes)
+	var panel_izquierdo := _panel("")
+	panel_izquierdo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	centro.add_child(panel_izquierdo)
+	var caja_izquierda := panel_izquierdo.get_child(0)
+	_titulo_izquierda = caja_izquierda.get_child(0) as Label
+	_texto_charleston = Label.new()
+	_texto_charleston.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	caja_izquierda.add_child(_texto_charleston)
+	_zona_descartes = ScrollContainer.new()
+	_zona_descartes.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	caja_izquierda.add_child(_zona_descartes)
+	_fichas_descartadas = HFlowContainer.new()
+	_fichas_descartadas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zona_descartes.add_child(_fichas_descartadas)
 
 	var panel_tarjeta := _panel("Tarjeta de manos (toca una para elegirla como objetivo)")
 	panel_tarjeta.custom_minimum_size.x = 560
@@ -298,15 +467,19 @@ func _crear_interfaz() -> void:
 	_fila_mano.custom_minimum_size.y = FichaVisual.TAMANO.y
 	columna.add_child(_fila_mano)
 
-	# --- Botones de acción (grandes, para dedos) ---
+	# --- Botones de acción (grandes, para dedos). Cada fase muestra los suyos. ---
 	var acciones := HBoxContainer.new()
 	acciones.alignment = BoxContainer.ALIGNMENT_CENTER
 	acciones.add_theme_constant_override("separation", 16)
 	columna.add_child(acciones)
+	_boton_pasar = _boton("Pasar", pasar_fichas)
+	_boton_segundo_si = _boton("Sí, otro Charleston", func(): decidir_segundo_charleston(true))
+	_boton_segundo_no = _boton("No, seguir", func(): decidir_segundo_charleston(false))
 	_boton_robar = _boton("Robar", robar)
 	_boton_descartar = _boton("Descartar", descartar)
-	acciones.add_child(_boton_robar)
-	acciones.add_child(_boton_descartar)
+	_boton_sugerir = _boton("Sugerir", sugerir)
+	for b in [_boton_pasar, _boton_segundo_si, _boton_segundo_no, _boton_robar, _boton_descartar, _boton_sugerir]:
+		acciones.add_child(b)
 	acciones.add_child(_boton("Ordenar", _al_pulsar_ordenar))
 
 

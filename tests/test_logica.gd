@@ -17,6 +17,8 @@ func _init() -> void:
 	probar_manos_ganadoras()
 	probar_comodines()
 	probar_consejos()
+	probar_asesor()
+	probar_charleston()
 
 	print("")
 	if _fallos == 0:
@@ -158,3 +160,92 @@ func probar_consejos() -> void:
 	var utiles := Validador.ids_utiles(casi, cercanas[0])
 	comprobar(utiles.size() == 13, "13 fichas útiles")
 	comprobar(not utiles.has(casi[13].id), "el viento Norte es la ficha que sobra")
+
+
+func probar_asesor() -> void:
+	print("Asesor:")
+	var m := fichas("flor flor car2 car2 car2 car4 car4 car4 car6 car6 comodin vN dR bam7")
+	var sobran := Asesor.fichas_que_sobran(m, Tarjeta.manos(), 3)
+	comprobar(sobran.size() == 3, "elige 3 fichas")
+	var claves := []
+	for f in sobran:
+		claves.append(f.clave())
+	claves.sort()
+	comprobar(claves == ["bam7", "dR", "vN"], "elige las 3 fichas que no encajan (%s)" % str(claves))
+	var solo_comodines := fichas("comodin comodin comodin comodin vN")
+	comprobar(Asesor.fichas_que_sobran(solo_comodines, Tarjeta.manos(), 3).size() == 1,
+		"nunca elige comodines")
+
+
+func _repartir_cuatro(semilla: int) -> Array:
+	var mazo := Mazo.new(semilla)
+	mazo.barajar()
+	return [mazo.repartir(13), mazo.repartir(13), mazo.repartir(13), mazo.repartir(13)]
+
+
+func _ids_de(manos: Array) -> Array:
+	var ids := []
+	for m in manos:
+		for f in m:
+			ids.append(f.id)
+	ids.sort()
+	return ids
+
+
+func _comodines_por_mano(manos: Array) -> Array:
+	var res := []
+	for m in manos:
+		res.append(Validador.contar(m)["comodines"])
+	return res
+
+
+func probar_charleston() -> void:
+	print("Charleston:")
+	var manos := _repartir_cuatro(777)
+	var ids_antes := _ids_de(manos)
+	var comodines_antes := _comodines_por_mano(manos)
+	var ch := Charleston.new(manos, Tarjeta.manos())
+
+	comprobar(ch.direccion_actual() == Charleston.DERECHA, "el primer pase es a la derecha")
+	comprobar(ch.validar_pase(ch.mano_jugador().slice(0, 2)) != "", "pasar 2 fichas NO vale")
+	var comodin := Ficha.new(Ficha.Tipo.COMODIN, "", 0, 999)
+	ch.mano_jugador().append(comodin)
+	var con_comodin: Array[Ficha] = [comodin, ch.mano_jugador()[0], ch.mano_jugador()[1]]
+	comprobar(ch.validar_pase(con_comodin).contains("comodines"), "pasar un comodín NO vale")
+	ch.mano_jugador().erase(comodin)
+
+	# El jugador de la izquierda (asiento 3) pasa a su derecha, que eres tú.
+	var esperado := Asesor.fichas_que_sobran(manos[3], Tarjeta.manos(), 3)
+	var recibidas := ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(recibidas == esperado, "en el pase a la derecha recibes del jugador de tu izquierda")
+	comprobar(ch.direccion_actual() == Charleston.ENFRENTE, "el segundo pase es enfrente")
+	ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(ch.direccion_actual() == Charleston.IZQUIERDA, "el tercer pase es a la izquierda")
+	ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(ch.etapa == Charleston.Etapa.PREGUNTA_SEGUNDO, "después de 3 pases se pregunta por el segundo")
+
+	ch.decidir_segundo(true)
+	comprobar(ch.direccion_actual() == Charleston.IZQUIERDA, "el segundo Charleston empieza a la izquierda")
+	for _i in 3:
+		ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(ch.etapa == Charleston.Etapa.CORTESIA, "después llega el pase de cortesía")
+	var cuatro := ch.mano_jugador().slice(0, 4)
+	comprobar(ch.validar_pase(cuatro) != "", "en la cortesía NO se pueden pasar 4")
+	var dos := Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 2)
+	comprobar(ch.pasar(dos).size() == 2, "en la cortesía recibes tantas como pasas")
+	comprobar(ch.terminado(), "el Charleston termina")
+
+	var tamanos_ok := true
+	for m in manos:
+		tamanos_ok = tamanos_ok and m.size() == 13
+	comprobar(tamanos_ok, "todos siguen con 13 fichas")
+	comprobar(_ids_de(manos) == ids_antes, "no se pierde ni se duplica ninguna ficha")
+	comprobar(_comodines_por_mano(manos) == comodines_antes, "nadie ha pasado comodines")
+
+	var otro := Charleston.new(_repartir_cuatro(42), Tarjeta.manos())
+	for _i in 3:
+		otro.pasar(Asesor.fichas_que_sobran(otro.mano_jugador(), Tarjeta.manos(), 3))
+	otro.decidir_segundo(false)
+	comprobar(otro.etapa == Charleston.Etapa.CORTESIA, "si no quieres el segundo, se pasa a la cortesía")
+	otro.saltar_cortesia()
+	comprobar(otro.terminado(), "saltar la cortesía termina el Charleston")

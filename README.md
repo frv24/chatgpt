@@ -12,11 +12,18 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
 - **Las 152 fichas**: barajar y repartir.
 - **Tarjeta de principiante**: 7 manos inventadas al estilo de la tarjeta oficial.
 - **Validador de manos**, que ya aplica las reglas de los comodines: solo valen en grupos de 3 o más.
-- **Modo solitario**: robas, descartas y ganas al completar una mano.
+- **Charleston completo**, guiado paso a paso:
+  - Primer Charleston (derecha, enfrente, izquierda).
+  - Segundo Charleston opcional (izquierda, enfrente, derecha).
+  - Pase de cortesía de 0 a 3 fichas.
+  - Los comodines no se pueden pasar, y las fichas que recibes se marcan en amarillo.
+- **3 rivales de la máquina** que participan en el Charleston y eligen qué pasar.
+- **Modo solitario**: tras el Charleston, robas, descartas y ganas al completar una mano.
 - **Consejos**:
   - Las manos de la tarjeta se ordenan según cuántas fichas te faltan.
   - Las fichas que te sirven llevan borde verde; las que no, se ven apagadas.
   - Cada mano trae su explicación y un consejo.
+  - El botón **Sugerir** te dice qué fichas pasar o descartar, y por qué.
 - **Controles táctiles**: tocas una ficha para seleccionarla y la arrastras para reordenar tu mano.
 
 ## Cómo está organizado
@@ -28,6 +35,8 @@ scripts/logica/          Reglas del juego (no dibujan nada)
   mazo.gd                Las 152 fichas: barajar y repartir
   tarjeta.gd             Las manos ganadoras (edítalas aquí)
   validador.gd           ¿Es mano ganadora? ¿Cuántas fichas faltan?
+  asesor.gd              Qué fichas sobran (lo usan los rivales y «Sugerir»)
+  charleston.gd          Los pases del Charleston
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
@@ -51,8 +60,9 @@ La tarjeta de la National Mah Jongg League tiene derechos de autor y cambia cada
 así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventadas.
 
 ## Próximos pasos
-- [ ] El Charleston (intercambio de fichas antes de empezar), guiado paso a paso
-- [ ] 3 rivales controlados por la máquina
+- [x] El Charleston, guiado paso a paso
+- [ ] El "pase a ciegas" del Charleston (pasar fichas recibidas sin mirarlas)
+- [ ] Que los 3 rivales jueguen turnos: robar y descartar
 - [ ] Cantar descartes (pung, kong) y mostrar los grupos expuestos
 - [ ] Tutorial interactivo y niveles de ayuda (Aprendiz, Intermedio, Experto)
 - [ ] Dibujos de las fichas, sonidos y animaciones
