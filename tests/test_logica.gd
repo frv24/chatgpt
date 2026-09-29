@@ -19,6 +19,8 @@ func _init() -> void:
 	probar_consejos()
 	probar_asesor()
 	probar_charleston()
+	probar_partida()
+	probar_lecciones()
 
 	print("")
 	if _fallos == 0:
@@ -249,3 +251,67 @@ func probar_charleston() -> void:
 	comprobar(otro.etapa == Charleston.Etapa.CORTESIA, "si no quieres el segundo, se pasa a la cortesía")
 	otro.saltar_cortesia()
 	comprobar(otro.terminado(), "saltar la cortesía termina el Charleston")
+
+
+func probar_partida() -> void:
+	print("Partida:")
+	var p := Partida.new(Tarjeta.manos(), 2, 2024)
+	comprobar(p.manos[2].size() == 14, "el Este recibe 14 fichas")
+	comprobar(p.manos[0].size() == 13 and p.manos[1].size() == 13 and p.manos[3].size() == 13, "los demás reciben 13")
+	comprobar(p.mazo.quedan() == 152 - 53, "quedan 99 fichas en el muro")
+	comprobar(p.turno == 2, "empieza el Este")
+	comprobar(p.viento(2) == "Este" and p.viento(3) == "Sur" and p.viento(0) == "Oeste" and p.viento(1) == "Norte",
+		"los vientos siguen hacia la derecha: Este, Sur, Oeste, Norte")
+	comprobar(not p.debe_robar(), "el Este empieza descartando sin robar")
+
+	# Partida entera con los 4 jugadores controlados por la máquina.
+	var turnos := 0
+	var orden_correcto := true
+	while not p.terminada and turnos < 1000:
+		var antes := p.turno
+		p.jugar_turno_rival()
+		if not p.terminada and p.turno != (antes + 1) % 4:
+			orden_correcto = false
+		turnos += 1
+	comprobar(p.terminada, "la partida termina (%d turnos)" % turnos)
+	comprobar(orden_correcto, "el turno siempre pasa al jugador de la derecha")
+	var total := p.mazo.quedan() + p.descartes.size()
+	for m in p.manos:
+		total += m.size()
+	comprobar(total == 152, "no se pierde ninguna ficha")
+	if p.ganador >= 0:
+		comprobar(Validador.es_mano_ganadora(p.manos[p.ganador], p.mano_ganadora), "la mano ganadora es válida")
+	else:
+		comprobar(p.mazo.quedan() == 0, "si nadie gana, es porque se acabó el muro")
+	var comodines_descartados := 0
+	for d in p.descartes:
+		if d["ficha"].es_comodin():
+			comodines_descartados += 1
+	comprobar(comodines_descartados == 0, "la máquina no descarta comodines")
+
+
+func probar_lecciones() -> void:
+	print("Lecciones:")
+	comprobar(Lecciones.ORDEN.size() == Lecciones.TODAS.size(), "todas las lecciones están en el índice de Reglas")
+	var completas := true
+	for clave in Lecciones.ORDEN:
+		var l: Dictionary = Lecciones.TODAS.get(clave, {})
+		for campo in ["titulo", "texto", "mesa"]:
+			if l.get(campo, "") == "":
+				completas = false
+	comprobar(completas, "cada lección tiene título, texto y consejo para la mesa real")
+	# Cada lección que usa la pantalla principal debe existir.
+	var codigo := FileAccess.get_file_as_string("res://scripts/ui/main.gd")
+	var regex := RegEx.new()
+	regex.compile("\"([a-z_]+)\"")
+	var faltan := []
+	for clave in Lecciones.ORDEN:
+		if not codigo.contains("\"%s\"" % clave):
+			faltan.append(clave)
+	comprobar(faltan.is_empty(), "la pantalla usa todas las lecciones (sin usar: %s)" % str(faltan))
+	var desconocidas := []
+	for m in regex.search_all(codigo):
+		var clave := m.get_string(1)
+		if codigo.contains("mostrar_leccion(\"%s\")" % clave) and not Lecciones.TODAS.has(clave):
+			desconocidas.append(clave)
+	comprobar(desconocidas.is_empty(), "no se muestra ninguna lección inexistente %s" % str(desconocidas))

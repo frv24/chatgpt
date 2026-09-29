@@ -17,8 +17,17 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - Segundo Charleston opcional (izquierda, enfrente, derecha).
   - Pase de cortesía de 0 a 3 fichas.
   - Los comodines no se pueden pasar, y las fichas que recibes se marcan en amarillo.
-- **3 rivales de la máquina** que participan en el Charleston y eligen qué pasar.
-- **Modo solitario**: tras el Charleston, robas, descartas y ganas al completar una mano.
+- **Partida por turnos contra 3 rivales de la máquina**:
+  - El Este empieza con 14 fichas y descarta sin robar; el turno pasa a la derecha.
+  - Los rivales roban, descartan y pueden ganar. Si gana uno, ves su mano.
+  - Cada descarte muestra quién lo hizo.
+  - El puesto de Este rota en cada partida.
+- **Lecciones ("¿por qué?")**, para aprender aquí y luego jugar en una mesa real:
+  - La primera vez que pasa algo (el Charleston, cada tipo de pase, los turnos, el Mahjong…)
+    sale una explicación con un recuadro "En la mesa real".
+  - El botón **¿Por qué?** explica el paso actual en cualquier momento.
+  - El botón **Reglas** reúne todas las lecciones para repasarlas.
+  - El interruptor **Explicaciones** las desactiva; la app recuerda cuáles ya viste.
 - **Consejos**:
   - Las manos de la tarjeta se ordenan según cuántas fichas te faltan.
   - Las fichas que te sirven llevan borde verde; las que no, se ven apagadas.
@@ -37,6 +46,8 @@ scripts/logica/          Reglas del juego (no dibujan nada)
   validador.gd           ¿Es mano ganadora? ¿Cuántas fichas faltan?
   asesor.gd              Qué fichas sobran (lo usan los rivales y «Sugerir»)
   charleston.gd          Los pases del Charleston
+  partida.gd             Reparto, turnos y final de la partida
+  lecciones.gd           Los textos del "¿por qué?" (edítalos aquí)
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
@@ -62,7 +73,8 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 ## Próximos pasos
 - [x] El Charleston, guiado paso a paso
 - [ ] El "pase a ciegas" del Charleston (pasar fichas recibidas sin mirarlas)
-- [ ] Que los 3 rivales jueguen turnos: robar y descartar
+- [x] Que los 3 rivales jueguen turnos: robar y descartar
+- [x] Lecciones con el porqué de cada regla y cómo se hace en la mesa real
 - [ ] Cantar descartes (pung, kong) y mostrar los grupos expuestos
 - [ ] Tutorial interactivo y niveles de ayuda (Aprendiz, Intermedio, Experto)
 - [ ] Dibujos de las fichas, sonidos y animaciones
