@@ -44,13 +44,13 @@ func _ready() -> void:
 	add_child(columna)
 
 	var titulo := Label.new()
-	titulo.text = "Mahjong Americano"
+	titulo.text = "Mahjong en Español"
 	titulo.add_theme_font_size_override("font_size", 64)
 	titulo.add_theme_color_override("font_color", ROSA)
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	columna.add_child(titulo)
 	var subtitulo := Label.new()
-	subtitulo.text = "Aprende y juega · Tarjeta 2026"
+	subtitulo.text = "Aprende y juega · Mahjong americano · Tarjeta 2026"
 	subtitulo.add_theme_font_size_override("font_size", 22)
 	subtitulo.add_theme_color_override("font_color", CAFE)
 	subtitulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

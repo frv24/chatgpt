@@ -9,6 +9,8 @@ const ANCHO_BANDERA := 64.0
 const SEPARACION := 8.0
 ## Color del fondo, para dibujar los recortes de las banderas.
 var color_fondo := Color("fbf3e4")
+## Colores de las banderas (se puede cambiar, por ejemplo, para quitar el del fondo).
+var colores: Array = COLORES
 
 
 func _init() -> void:
@@ -22,7 +24,7 @@ func _draw() -> void:
 	var cuantas := int(size.x / (ANCHO_BANDERA + SEPARACION)) + 1
 	for i in cuantas:
 		var x := i * (ANCHO_BANDERA + SEPARACION) + SEPARACION / 2
-		_bandera(Rect2(x, 5, ANCHO_BANDERA, 48), COLORES[i % COLORES.size()])
+		_bandera(Rect2(x, 5, ANCHO_BANDERA, 48), colores[i % colores.size()])
 
 
 func _bandera(r: Rect2, color: Color) -> void:

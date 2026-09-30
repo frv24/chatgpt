@@ -6,3 +6,7 @@
 build/
 *.apk
 *.aab
+
+# Llaves de firma: nunca subirlas
+*.keystore
+*.jks

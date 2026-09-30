@@ -116,6 +116,7 @@ var _menu: MenuPrincipal
 var _ids_animadas := {}
 var _ajustes_guardados := {}
 var _factor_letra := 1.0
+var _margen: MarginContainer
 var _descartes_mostrados := 0
 var _reglas: Dictionary  # etiquetas de la ventana de reglas
 var _analisis_lista: Array[Dictionary] = []
@@ -125,6 +126,8 @@ func _ready() -> void:
 	_cargar_progreso()
 	_crear_interfaz()
 	_aplicar_ajustes()
+	_ajustar_zona_segura()
+	get_viewport().size_changed.connect(_ajustar_zona_segura)
 	# La primera vez, se empieza directamente con la partida guiada.
 	# Las siguientes, se abre el menú principal.
 	if not _tutorial_hecho and not _nivel_elegido:
@@ -886,6 +889,64 @@ func _estilo_rosa(luz: float = 0.0) -> StyleBoxFlat:
 
 
 # =============================================================================
+#  MÓVIL: BOTÓN «ATRÁS» Y ZONA SEGURA
+# =============================================================================
+
+func _notification(what: int) -> void:
+	# El botón «atrás» de Android (hay que tener quit_on_go_back desactivado).
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_al_pulsar_atras()
+
+
+func _unhandled_input(evento: InputEvent) -> void:
+	# En el ordenador, la tecla Esc hace lo mismo que «atrás».
+	if evento.is_action_pressed("ui_cancel"):
+		_al_pulsar_atras()
+		get_viewport().set_input_as_handled()
+
+
+## «Atrás»: cierra la ventana que esté abierta; si no hay ninguna, abre el menú;
+## y desde el menú principal, sale del juego.
+func _al_pulsar_atras() -> void:
+	if _menu._capa_ajustes.visible:
+		_menu._capa_ajustes.visible = false
+	elif _capa_leccion.visible:
+		_cola_lecciones.clear()
+		_capa_leccion.visible = false
+	elif _capa_reglas.visible:
+		_capa_reglas.visible = false
+	elif _ventana_tarjeta.visible:
+		_ventana_tarjeta.visible = false
+	elif _capa_marcador.visible:
+		_capa_marcador.visible = false
+	elif _capa_niveles.visible:
+		_capa_niveles.visible = false
+	elif _menu.visible:
+		get_tree().quit()
+	else:
+		_menu.abrir(true)
+
+
+## En teléfonos con muesca o esquinas redondeadas, deja libre la zona que no se ve.
+func _ajustar_zona_segura() -> void:
+	if not OS.has_feature("mobile") or _margen == null:
+		return
+	var segura := DisplayServer.get_display_safe_area()
+	var ventana := DisplayServer.window_get_size()
+	if segura.size.x <= 0 or ventana.x <= 0:
+		return
+	var escala := get_viewport_rect().size.x / float(ventana.x)
+	var izquierda := int(segura.position.x * escala)
+	var derecha := int((ventana.x - segura.end.x) * escala)
+	var arriba := int(segura.position.y * escala)
+	var abajo := int((ventana.y - segura.end.y) * escala)
+	_margen.add_theme_constant_override("margin_left", 16 + maxi(izquierda, 0))
+	_margen.add_theme_constant_override("margin_right", 16 + maxi(derecha, 0))
+	_margen.add_theme_constant_override("margin_top", 16 + maxi(arriba, 0))
+	_margen.add_theme_constant_override("margin_bottom", 16 + maxi(abajo, 0))
+
+
+# =============================================================================
 #  MENÚ PRINCIPAL Y AJUSTES
 # =============================================================================
 
@@ -1530,6 +1591,7 @@ func _crear_interfaz() -> void:
 	for lado in ["left", "right", "top", "bottom"]:
 		margen.add_theme_constant_override("margin_" + lado, 16)
 	add_child(margen)
+	_margen = margen
 
 	var columna := VBoxContainer.new()
 	columna.add_theme_constant_override("separation", 12)
@@ -1540,7 +1602,7 @@ func _crear_interfaz() -> void:
 	barra.add_theme_constant_override("separation", 12)
 	columna.add_child(barra)
 	var titulo := Label.new()
-	titulo.text = "Mahjong Americano"
+	titulo.text = "Mahjong en Español"
 	titulo.add_theme_font_size_override("font_size", 26)
 	barra.add_child(titulo)
 	var espacio := Control.new()

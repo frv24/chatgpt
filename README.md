@@ -1,4 +1,4 @@
-# Mahjong Americano (en español)
+# Mahjong en Español
 
 Juego de Mahjong americano para todas las edades, con consejos para aprender a jugar.
 Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y web).
@@ -135,4 +135,8 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [x] Tutorial interactivo «Aprender a jugar»
 - [x] Diseños propios de las fichas (tema mexicano: Nopal, Picado, Sol…; ver `assets/fichas/LEEME.md`)
 - [x] Sonidos, animaciones, menú principal, ajustes y atriles con el reverso
-- [ ] Exportar a Android (Proyecto > Exportar) y después a iOS
+- [x] Preparación para Android: ícono, pantalla de carga, paquete `com.mahjongenespanol`,
+      botón «atrás», zona segura y `export_presets.cfg`
+- [ ] Probar en un teléfono y publicar en Google Play (guía en `ANDROID.md`,
+      textos e imágenes de la tienda en `tienda/`)
+- [ ] iOS
