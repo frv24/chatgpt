@@ -108,7 +108,7 @@ const TODAS := {
 	},
 	"niveles": {
 		"titulo": "Los niveles",
-		"texto": "• FÁCIL: todas las ayudas y rivales tranquilos.\n• NORMAL: todas las ayudas y rivales que juegan de verdad.\n• INTERMEDIO: sin bordes verdes, 3 sugerencias por partida y con puntos y marcador.\n• EXPERTO: sin ayudas, como en la mesa real, con rivales que se defienden.\nPuedes cambiar de nivel en cada «Nueva partida».",
+		"texto": "• FÁCIL: todas las ayudas, consejos a cada paso y rivales tranquilos.\n• NORMAL: todas las ayudas y rivales que juegan de verdad.\n• INTERMEDIO: sin bordes verdes, pero con consejos y 6 sugerencias por partida; con puntos y marcador.\n• EXPERTO: sin ayudas, como en la mesa real, con rivales que se defienden.\nPuedes cambiar de nivel en cada «Nueva partida».",
 		"mesa": "Cuando ganes a menudo en Normal, prueba Intermedio. Y cuando ya no necesites las sugerencias, ya tendrás lo necesario para jugar con amigos en una mesa real.",
 	},
 	"muro_vacio": {

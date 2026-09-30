@@ -201,7 +201,37 @@ static func analizar(fichas: Array[Ficha], mano_tarjeta: Dictionary, expuestas: 
 		if r["faltan"] < mejor["faltan"]:
 			mejor = r
 			mejor["variante"] = variante
+			mejor["req"] = req
 	return mejor
+
+
+## Qué fichas concretas te faltan para una mano de la tarjeta (con su mejor variante).
+## Devuelve una lista de claves (repetidas si faltan varias iguales), sin contar
+## las que ya pueden cubrir tus comodines. Su tamaño es igual a "faltan".
+## Primero van las que solo valen de verdad (parejas y sueltas, sin comodín).
+static func fichas_que_faltan(fichas: Array[Ficha], mano_tarjeta: Dictionary, expuestas: Array = []) -> Array[String]:
+	var faltantes: Array[String] = []
+	var analisis := analizar(fichas, mano_tarjeta, expuestas)
+	if analisis["faltan"] == IMPOSIBLE:
+		return faltantes
+	var c := contar(fichas)
+	var req: Dictionary = analisis["req"]
+	var comodinables: Array[String] = []
+	for clave in req:
+		if clave == "_ok":
+			continue
+		var tengo: int = c["conteo"].get(clave, 0)
+		var p: int = req[clave]["solo_naturales"]
+		var q: int = req[clave]["con_comodin"]
+		var usadas_p := mini(tengo, p)
+		for i in p - usadas_p:
+			faltantes.append(clave)
+		for i in maxi(0, q - (tengo - usadas_p)):
+			comodinables.append(clave)
+	# Tus comodines cubren parte de los grupos de 3 o más.
+	comodinables.resize(maxi(0, comodinables.size() - c["comodines"]))
+	faltantes.append_array(comodinables)
+	return faltantes
 
 
 ## ¿Estas fichas (más los grupos expuestos) forman exactamente esta mano de la tarjeta?

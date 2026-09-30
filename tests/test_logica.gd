@@ -27,6 +27,8 @@ func _init() -> void:
 	probar_puntuacion()
 	probar_tutorial()
 	probar_pase_a_ciegas()
+	probar_fichas_que_faltan()
+	probar_entrenador()
 	probar_lecciones()
 
 	print("")
@@ -463,7 +465,7 @@ func probar_niveles() -> void:
 	var completos := true
 	for id in Niveles.ORDEN:
 		var n: Dictionary = Niveles.TODOS[id]
-		for campo in ["nombre", "descripcion", "consejos", "sugerencias", "explicaciones", "cantos", "marcador", "rivales", "pausa"]:
+		for campo in ["nombre", "descripcion", "consejos", "sugerencias", "explicaciones", "cantos", "entrenador", "marcador", "rivales", "pausa"]:
 			completos = completos and n.has(campo)
 	comprobar(completos, "los 4 niveles tienen todos sus ajustes")
 	comprobar(not Niveles.obtener("facil")["marcador"] and not Niveles.obtener("normal")["marcador"],
@@ -622,3 +624,44 @@ func probar_pase_a_ciegas() -> void:
 	var recogidas := ch.recoger_bandeja()
 	comprobar(recogidas.size() == 3 and ch.mano_jugador().size() == 13 and ch.bandeja.is_empty(),
 		"«Mirar fichas» las pone en tu mano")
+
+
+func probar_fichas_que_faltan() -> void:
+	print("Fichas que faltan:")
+	var casi := fichas("flor flor car2 car2 car2 car4 car4 car4 car6 car6 car6 car8 car8 vN")
+	comprobar(Validador.fichas_que_faltan(casi, mano("Pares del 2 al 8")) == ["car8"], "a esta mano le falta un 8 de Picado")
+	var con_comodin := fichas("flor car2 car2 car2 car4 car4 comodin car6 car6 car6 car8 car8 vN")
+	var faltan := Validador.fichas_que_faltan(con_comodin, mano("Pares del 2 al 8"))
+	comprobar(faltan.size() == 2 and faltan[0] == "flor", "la flor de la pareja va primero (no admite comodín): %s" % str(faltan))
+	var bien := true
+	for semilla in range(1, 6):
+		var mazo := Mazo.new(semilla)
+		mazo.barajar()
+		var m := mazo.repartir(13)
+		for mt in Tarjeta.manos():
+			var a := Validador.analizar(m, mt)
+			var lista := Validador.fichas_que_faltan(m, mt)
+			if a["faltan"] != Validador.IMPOSIBLE and lista.size() != a["faltan"]:
+				bien = false
+	comprobar(bien, "siempre lista tantas fichas como «faltan»")
+
+
+func probar_entrenador() -> void:
+	print("Entrenador:")
+	comprobar(Entrenador.nombrar(["bam8", "bam8", "flor"]) == "dos Nopal 8 y Cempasúchil", "nombra las fichas que faltan")
+	var pares := mano("Pares del 2 al 8")
+	var m := fichas("flor flor car2 car2 car2 car4 car4 car4 car6 car6 car6 car8 car8 vN")
+	comprobar(Entrenador.tras_robar(m[12], m, pares, []).contains("te sirve"), "avisa si la ficha robada te sirve")
+	comprobar(Entrenador.tras_robar(m[13], m, pares, []).contains("no te sirve"), "avisa si la ficha robada no te sirve")
+	var cerca := Entrenador.cerca_de_ganar(m, pares, [])
+	comprobar(cerca.contains("UNA ficha") and cerca.contains("Picado 8"), "avisa cuando te falta una ficha: %s" % cerca)
+
+	var p := Partida.new(Tarjeta.manos(), 0, 4)
+	p.manos[0] = m
+	p.expuestas[1] = [grupo("vN vN vN")]
+	comprobar(Entrenador.aviso_descarte(m[13], p, pares).contains("Derecha"), "avisa si tiras una ficha que un rival ha expuesto")
+	comprobar(Entrenador.aviso_descarte(m[0], p, pares).contains("te sirve"), "avisa si tiras una ficha que te sirve")
+	comprobar(Entrenador.aviso_descarte(fichas("comodin")[0], p, pares).contains("comodín"), "avisa si tiras un comodín")
+	var lejos := mano("Los cuatro vientos")
+	comprobar(Entrenador.mejor_objetivo(m, lejos, Tarjeta.manos(), []).contains("Pares del 2 al 8"),
+		"sugiere cambiar a una mano más cercana")

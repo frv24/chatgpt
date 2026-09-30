@@ -78,6 +78,10 @@ var _texto_charleston: Label
 var _zona_charleston: ScrollContainer
 var _lista_tarjeta: ItemList
 var _texto_objetivo: Label
+var _fila_faltan: HFlowContainer
+var _consejo: Label
+## Comodín que el jugador quiere tirar (hay que confirmar pulsando otra vez).
+var _confirmar_comodin := -1
 var _titulo_tarjeta: Label
 var _mensaje: Label
 var _info_partida: Label
@@ -137,6 +141,8 @@ func _ready() -> void:
 func nueva_partida() -> void:
 	_salir_del_tutorial()
 	_timer_rivales.stop()
+	_limpiar_consejo()
+	_confirmar_comodin = -1
 	_nivel = Niveles.obtener(nivel_id)
 	pausa_rivales = _pausa(_nivel["pausa"])
 	_sugerencias_restantes = _nivel["sugerencias"]
@@ -157,6 +163,7 @@ func nueva_partida() -> void:
 	_refrescar()
 	for clave in ["preparar_mesa", "las_fichas", "asientos", "charleston", "charleston_direcciones"]:
 		mostrar_leccion(clave)
+	_aconsejar(Entrenador.charleston(charleston, objetivo, _nivel["consejos"]))
 
 
 func pasar_fichas() -> void:
@@ -212,6 +219,7 @@ func _despues_de_un_paso(texto: String) -> void:
 	var descripcion := charleston.descripcion()
 	_mostrar_mensaje(texto + " " + descripcion + ("" if descripcion.ends_with("?") else "."))
 	_refrescar()
+	_aconsejar(Entrenador.charleston(charleston, objetivo, _nivel["consejos"]))
 	# Lecciones de los momentos importantes del Charleston.
 	match charleston.etapa:
 		Charleston.Etapa.PRIMERO:
@@ -242,6 +250,9 @@ func _siguiente_turno() -> void:
 			fase = Fase.ROBAR
 			_agregar_mensaje("Tu turno: pulsa «Robar».")
 			_sonidos.tocar("turno")
+			var cerca := Entrenador.cerca_de_ganar(mano, objetivo, partida.expuestas[0])
+			if cerca != "":
+				_aconsejar(cerca)
 		elif partida.comprobar_mahjong():
 			_terminar()
 			return
@@ -294,6 +305,13 @@ func robar() -> void:
 		_agregar_mensaje("¡Puedes cambiar una ficha por un comodín expuesto!")
 		mostrar_leccion("cambiar_comodin")
 	_refrescar()
+	# El entrenador comenta la ficha robada y, si hace falta, sugiere otro objetivo.
+	var consejo := Entrenador.tras_robar(nueva, mano, objetivo, partida.expuestas[0])
+	if objetivo_elegido or _nivel["consejos"]:
+		var otro := Entrenador.mejor_objetivo(mano, objetivo, manos_tarjeta, partida.expuestas[0])
+		if otro != "":
+			consejo += " " + otro
+	_aconsejar(consejo)
 
 
 func descartar() -> void:
@@ -308,6 +326,14 @@ func descartar() -> void:
 		if not _tutorial_espera("descartar"):
 			return
 		_avanzar_tutorial()
+	# En los niveles con entrenador, tirar un comodín pide confirmación.
+	if ficha.es_comodin() and _nivel.get("entrenador", false) and not tutorial_activo and _confirmar_comodin != ficha.id:
+		_confirmar_comodin = ficha.id
+		_mostrar_mensaje("¿Seguro que quieres tirar un comodín? Pulsa «Descartar» otra vez para confirmarlo.")
+		_sonidos.tocar("aviso")
+		return
+	_confirmar_comodin = -1
+	_limpiar_consejo()
 	partida.descartar(ficha)
 	seleccion.clear()
 	ids_nuevas.clear()
@@ -431,12 +457,14 @@ func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
 	else:
 		_agregar_mensaje("%s cantó %s y expone un %s." % [partida.nombre(jugador), ficha.nombre(), grupo])
 		_sonidos.tocar("cantar", 0.8)
+		_aconsejar(Entrenador.exposicion_rival(partida, jugador, ficha))
 		mostrar_leccion("exponer")
 		_siguiente_turno()
 
 
 func _terminar() -> void:
 	fase = Fase.FIN
+	_limpiar_consejo()
 	_timer_rivales.stop()
 	var animar: bool = _menu.ajustes["animaciones"]
 	if partida.ganador == 0:
@@ -638,6 +666,7 @@ func _guardar_progreso() -> void:
 
 func empezar_tutorial() -> void:
 	_timer_rivales.stop()
+	_limpiar_consejo()
 	_capa_niveles.visible = false
 	_capa_leccion.visible = false
 	_cola_lecciones.clear()
@@ -647,6 +676,7 @@ func empezar_tutorial() -> void:
 	_nivel = Niveles.obtener("facil").duplicate()
 	_nivel["explicaciones"] = false
 	_nivel["sugerencias"] = 0
+	_nivel["entrenador"] = false
 	pausa_rivales = _pausa(1.8)
 	_sugerencias_restantes = 0
 	partida = Tutorial.crear_partida(manos_tarjeta)
@@ -1069,8 +1099,13 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 	elif fase == Fase.DESCARTAR:
 		var ya_estaba := id in seleccion
 		seleccion.clear()
+		_confirmar_comodin = -1
 		if not ya_estaba:
 			seleccion.append(id)
+			# Aviso antes de un posible error (comodín, ficha que te sirve o peligrosa).
+			var aviso := Entrenador.aviso_descarte(fv.ficha, partida, objetivo)
+			if aviso != "":
+				_aconsejar(aviso)
 		_sonidos.tocar("seleccionar")
 	elif fase == Fase.TURNO_RIVAL:
 		_mostrar_mensaje("Espera: es el turno de %s." % partida.nombre(partida.turno))
@@ -1181,6 +1216,13 @@ func _refrescar_tarjeta() -> void:
 		+ " (toca una para elegirla como objetivo)"
 	if not objetivo_elegido:
 		objetivo = _analisis_lista[0]["mano"]
+		# Para aprender, mejor una mano que se pueda exponer (las ocultas son más
+		# difíciles): si hay una casi igual de cerca (1 ficha más), se elige esa.
+		if _nivel["consejos"] and objetivo["oculta"]:
+			for a in _analisis_lista:
+				if not a["mano"]["oculta"] and a["faltan"] <= _analisis_lista[0]["faltan"] + 1:
+					objetivo = a["mano"]
+					break
 
 	_lista_tarjeta.clear()
 	for i in _analisis_lista.size():
@@ -1203,6 +1245,25 @@ func _refrescar_tarjeta() -> void:
 	if _nivel["consejos"]:
 		texto_objetivo += "\n\nConsejo: " + objetivo["consejo"]
 	_texto_objetivo.text = texto_objetivo
+
+	for hijo in _fila_faltan.get_children():
+		hijo.queue_free()
+	var mostrar_faltan: bool = _nivel.get("entrenador", false) and not tutorial_activo \
+		and (objetivo_elegido or _nivel["consejos"]) and fase != Fase.FIN
+	var faltan: Array[String] = []
+	if mostrar_faltan:
+		faltan = Validador.fichas_que_faltan(mano, objetivo, partida.expuestas[0])
+	_fila_faltan.visible = not faltan.is_empty()
+	if not faltan.is_empty():
+		var etiqueta := Label.new()
+		etiqueta.text = "Te faltan %d:" % faltan.size()
+		_fila_faltan.add_child(etiqueta)
+		for i in mini(faltan.size(), 12):
+			_fila_faltan.add_child(_ficha_pequena_sin_etiqueta(Ficha.desde_clave(faltan[i]), 0.42))
+		if faltan.size() > 12:
+			var mas := Label.new()
+			mas.text = "…"
+			_fila_faltan.add_child(mas)
 
 
 func _refrescar_mano() -> void:
@@ -1365,6 +1426,17 @@ func _ficha_pequena(ficha: Ficha, etiqueta: String) -> Control:
 	return hueco
 
 
+func _ficha_pequena_sin_etiqueta(ficha: Ficha, escala: float) -> Control:
+	var fv := FichaVisual.new(ficha)
+	fv.scale = Vector2(escala, escala)
+	fv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hueco := Control.new()
+	hueco.custom_minimum_size = FichaVisual.TAMANO * escala
+	hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hueco.add_child(fv)
+	return hueco
+
+
 ## Un grupo expuesto: sus fichas juntas y en pequeño.
 func _grupo_pequeno(grupo: Dictionary) -> Control:
 	var escala := 0.6
@@ -1415,6 +1487,19 @@ func _texto_pasos_charleston() -> String:
 		" (lo apagado)" if _nivel["consejos"] else ""))
 	lineas.append("¿Dudas? Pulsa «¿Por qué?» para ver la explicación de este paso.")
 	return "\n".join(lineas)
+
+
+## Muestra un consejo del entrenador (solo en los niveles que lo tienen).
+func _aconsejar(texto: String) -> void:
+	if texto == "" or tutorial_activo or not _nivel.get("entrenador", false):
+		return
+	_consejo.text = "Consejo: " + texto
+	_consejo.visible = true
+
+
+func _limpiar_consejo() -> void:
+	_consejo.text = ""
+	_consejo.visible = false
 
 
 func _mostrar_mensaje(texto: String) -> void:
@@ -1516,6 +1601,10 @@ func _crear_interfaz() -> void:
 	_texto_objetivo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_texto_objetivo.custom_minimum_size.y = 110
 	panel_tarjeta.get_child(0).add_child(_texto_objetivo)
+	# «Te faltan»: las fichas que te faltan para tu objetivo, dibujadas.
+	_fila_faltan = HFlowContainer.new()
+	_fila_faltan.add_theme_constant_override("h_separation", 2)
+	panel_tarjeta.get_child(0).add_child(_fila_faltan)
 
 	# --- Mensaje para el jugador ---
 	_mensaje = Label.new()
@@ -1524,6 +1613,14 @@ func _crear_interfaz() -> void:
 	_mensaje.add_theme_font_size_override("font_size", 20)
 	_mensaje.add_theme_color_override("font_color", Color("ffe082"))
 	columna.add_child(_mensaje)
+	# --- Consejo del entrenador (niveles para aprender) ---
+	_consejo = Label.new()
+	_consejo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_consejo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_consejo.add_theme_font_size_override("font_size", 19)
+	_consejo.add_theme_color_override("font_color", Color("b9f6ca"))
+	_consejo.visible = false
+	columna.add_child(_consejo)
 
 	# --- Tu mano ---
 	_fila_mano = HBoxContainer.new()

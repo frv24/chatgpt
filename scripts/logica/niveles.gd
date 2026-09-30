@@ -10,6 +10,8 @@ extends RefCounted
 ##                    "explicados" = solo si te conviene, explicando cuánto te acerca;
 ##                    "utiles"     = solo si te conviene, sin explicación;
 ##                    "todos"      = siempre que la regla lo permita (como en la mesa real).
+##   entrenador:    consejos que salen solos (qué te falta, si lo que robas te sirve,
+##                  avisos antes de tirar un comodín o una ficha peligrosa...).
 ##   marcador:      se cuentan puntos y pagos entre partidas.
 ##   rivales:       "tranquilos" (no exponen grupos y a veces descartan sin pensar),
 ##                  "normales" o "expertos" (además, evitan darte fichas peligrosas).
@@ -20,26 +22,26 @@ const ORDEN := ["facil", "normal", "intermedio", "experto"]
 const TODOS := {
 	"facil": {
 		"nombre": "Fácil",
-		"descripcion": "Para aprender desde cero. Todas las ayudas y rivales tranquilos.",
-		"consejos": true, "sugerencias": -1, "explicaciones": true, "cantos": "explicados",
+		"descripcion": "Para aprender desde cero. Todas las ayudas, consejos a cada paso y rivales tranquilos.",
+		"consejos": true, "sugerencias": -1, "explicaciones": true, "cantos": "explicados", "entrenador": true,
 		"marcador": false, "rivales": "tranquilos", "pausa": 1.6,
 	},
 	"normal": {
 		"nombre": "Normal",
-		"descripcion": "Ya conoces las reglas. Todas las ayudas y rivales que juegan de verdad.",
-		"consejos": true, "sugerencias": -1, "explicaciones": true, "cantos": "explicados",
+		"descripcion": "Ya conoces las reglas. Todas las ayudas y consejos, y rivales que juegan de verdad.",
+		"consejos": true, "sugerencias": -1, "explicaciones": true, "cantos": "explicados", "entrenador": true,
 		"marcador": false, "rivales": "normales", "pausa": 1.2,
 	},
 	"intermedio": {
 		"nombre": "Intermedio",
-		"descripcion": "Menos ayudas: sin bordes verdes y solo 3 sugerencias por partida. Con puntos y marcador.",
-		"consejos": false, "sugerencias": 3, "explicaciones": true, "cantos": "utiles",
+		"descripcion": "Sin bordes verdes, pero con consejos y 6 sugerencias por partida. Con puntos y marcador.",
+		"consejos": false, "sugerencias": 6, "explicaciones": true, "cantos": "utiles", "entrenador": true,
 		"marcador": true, "rivales": "normales", "pausa": 1.0,
 	},
 	"experto": {
 		"nombre": "Experto",
 		"descripcion": "Como en la mesa real: sin ayudas, cantas cuando quieras y rivales que se defienden. Con puntos y marcador.",
-		"consejos": false, "sugerencias": 0, "explicaciones": false, "cantos": "todos",
+		"consejos": false, "sugerencias": 0, "explicaciones": false, "cantos": "todos", "entrenador": false,
 		"marcador": true, "rivales": "expertos", "pausa": 0.8,
 	},
 }

@@ -50,11 +50,20 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
 - **4 niveles** (se eligen en «Nueva partida»; se configuran en `scripts/logica/niveles.gd`):
   - **Fácil**: todas las ayudas y rivales tranquilos (no exponen grupos y a veces tiran sin pensar).
   - **Normal**: todas las ayudas y rivales que juegan de verdad.
-  - **Intermedio**: sin bordes verdes ni orden por cercanía, 3 sugerencias por partida, con puntos y marcador.
+  - **Intermedio**: sin bordes verdes ni orden por cercanía, pero con entrenador y 6 sugerencias
+    por partida; con puntos y marcador.
   - **Experto**: sin ayudas, puedes cantar cualquier descarte que permitan las reglas y los rivales
     se defienden (no tiran fichas que completan tus grupos expuestos). Con puntos y marcador.
 - **Puntos y marcador** (Intermedio y Experto): quien descarta la ficha ganadora paga doble,
   si ganas robando todos pagan doble y una mano sin comodines vale el doble.
+- **Entrenador** (Fácil, Normal e Intermedio): consejos que salen solos, sin pedirlos:
+  - «Te faltan»: las fichas exactas que te faltan para tu objetivo, dibujadas.
+  - Al robar: si la ficha te sirve o puedes tirarla.
+  - Antes de descartar: avisos si tiras un comodín (pide confirmación), una ficha que te sirve
+    o una que completaría el grupo expuesto de un rival.
+  - Si otra mano de la tarjeta está bastante más cerca que tu objetivo, o te falta solo una ficha.
+  - Qué significa que un rival exponga un grupo, y consejos en cada paso del Charleston.
+  - Los textos están en `scripts/logica/entrenador.gd`.
 - **Consejos** (Fácil y Normal):
   - Las manos de la tarjeta se ordenan según cuántas fichas te faltan.
   - Las fichas que te sirven llevan borde verde; las que no, se ven apagadas.
@@ -86,6 +95,7 @@ scripts/logica/          Reglas del juego (no dibujan nada)
   lecciones.gd           Los textos del "¿por qué?" (edítalos aquí)
   niveles.gd             Los 4 niveles y sus ayudas (edítalos aquí)
   tutorial.gd            La partida guiada: fichas preparadas y textos de cada paso
+  entrenador.gd          Los consejos automáticos (edítalos aquí)
 scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
