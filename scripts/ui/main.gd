@@ -104,6 +104,13 @@ var _capa_niveles: Control
 var _capa_marcador: Control
 var _texto_marcador: Label
 var _botones_cantar := {}  # tamaño del grupo (3, 4, 5) -> botón
+var _sonidos: Sonidos
+var _celebracion: Celebracion
+var _menu: MenuPrincipal
+## Fichas que ya hicieron su animación de entrada (para no repetirla en cada refresco).
+var _ids_animadas := {}
+var _ajustes_guardados := {}
+var _descartes_mostrados := 0
 var _reglas: Dictionary  # etiquetas de la ventana de reglas
 var _analisis_lista: Array[Dictionary] = []
 
@@ -111,11 +118,14 @@ var _analisis_lista: Array[Dictionary] = []
 func _ready() -> void:
 	_cargar_progreso()
 	_crear_interfaz()
+	_aplicar_ajustes()
 	# La primera vez, se empieza directamente con la partida guiada.
+	# Las siguientes, se abre el menú principal.
 	if not _tutorial_hecho and not _nivel_elegido:
 		empezar_tutorial()
 	else:
 		nueva_partida()
+		_menu.abrir(false)
 
 
 # =============================================================================
@@ -126,9 +136,11 @@ func nueva_partida() -> void:
 	_salir_del_tutorial()
 	_timer_rivales.stop()
 	_nivel = Niveles.obtener(nivel_id)
-	pausa_rivales = pausa_forzada if pausa_forzada >= 0 else _nivel["pausa"]
+	pausa_rivales = _pausa(_nivel["pausa"])
 	_sugerencias_restantes = _nivel["sugerencias"]
 	partida = Partida.new(manos_tarjeta, _proximo_este, 0, _nivel["rivales"])
+	_ids_animadas.clear()
+	_descartes_mostrados = 0
 	_proximo_este = (_proximo_este + 1) % 4
 	charleston = partida.crear_charleston()
 	mano = partida.manos[0]
@@ -152,6 +164,7 @@ func pasar_fichas() -> void:
 	var error := charleston.validar_pase(pase)
 	if error != "":
 		_mostrar_mensaje(error)
+		_sonidos.tocar("aviso")
 		return
 	if tutorial_activo and not _tutorial_espera("pasar"):
 		return
@@ -163,6 +176,7 @@ func pasar_fichas() -> void:
 		ids_nuevas.append(f.id)
 	if tutorial_activo:
 		# En el tutorial se practica un solo pase.
+		_sonidos.tocar("pasar")
 		_ordenar_mano()
 		_refrescar()
 		_avanzar_tutorial()
@@ -173,6 +187,7 @@ func pasar_fichas() -> void:
 		texto += " y no recibiste ninguna."
 	else:
 		texto += " y recibiste: %s (en amarillo)." % _nombres(recibidas)
+	_sonidos.tocar("pasar")
 	_despues_de_un_paso(texto)
 
 
@@ -221,6 +236,7 @@ func _siguiente_turno() -> void:
 		if partida.debe_robar():
 			fase = Fase.ROBAR
 			_agregar_mensaje("Tu turno: pulsa «Robar».")
+			_sonidos.tocar("turno")
 		elif partida.comprobar_mahjong():
 			_terminar()
 			return
@@ -249,6 +265,7 @@ func _al_terminar_timer_rivales() -> void:
 		_siguiente_turno()
 		return
 	_mostrar_mensaje(texto + "%s descartó: %s." % [partida.nombre(r["jugador"]), r["descartada"].nombre()])
+	_sonidos.tocar("descartar", 0.7)
 	if partida.descartes.size() >= 3:
 		mostrar_leccion("descartes_rivales")
 	_tras_descarte()
@@ -267,6 +284,7 @@ func robar() -> void:
 	ids_nuevas.append(nueva.id)
 	fase = Fase.DESCARTAR
 	_mostrar_mensaje("Has robado: %s. Toca la ficha que quieras descartar y pulsa «Descartar»." % nueva.nombre())
+	_sonidos.tocar("robar")
 	if not partida.cambios_de_comodin(0).is_empty():
 		_agregar_mensaje("¡Puedes cambiar una ficha por un comodín expuesto!")
 		mostrar_leccion("cambiar_comodin")
@@ -290,6 +308,7 @@ func descartar() -> void:
 	ids_nuevas.clear()
 	var aviso := " Cuidado: ¡los comodines casi nunca se descartan!" if ficha.es_comodin() else ""
 	_mostrar_mensaje("Descartaste: %s.%s" % [ficha.nombre(), aviso])
+	_sonidos.tocar("descartar")
 	_tras_descarte()
 
 
@@ -307,6 +326,7 @@ func cambiar_comodin() -> void:
 	seleccion.clear()
 	var de_quien := "tu grupo" if opcion["dueno"] == 0 else "el grupo de " + partida.nombre(opcion["dueno"])
 	_mostrar_mensaje("Pusiste tu %s en %s y te llevaste el comodín." % [opcion["ficha"].nombre(), de_quien])
+	_sonidos.tocar("cantar")
 	if partida.comprobar_mahjong():
 		_terminar()
 		return
@@ -349,6 +369,7 @@ func _tras_descarte() -> void:
 	else:
 		_agregar_mensaje("Puedes cantar %s. ¿Qué haces?" % ficha.nombre())
 	mostrar_leccion("cantar")
+	_sonidos.tocar("turno")
 	_refrescar()
 
 
@@ -396,6 +417,7 @@ func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
 		ids_nuevas.append(ficha.id)
 		fase = Fase.DESCARTAR
 		_agregar_mensaje("Cantaste %s: expones un %s. Ahora descarta una ficha (sin robar)." % [ficha.nombre(), grupo])
+		_sonidos.tocar("cantar")
 		if partida.mejor_analisis(0)["faltan"] == Validador.IMPOSIBLE:
 			_agregar_mensaje("Cuidado: con tus grupos expuestos ya no encajas en ninguna mano de la tarjeta (mano muerta).")
 		mostrar_leccion("exponer")
@@ -403,6 +425,7 @@ func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
 		_refrescar()
 	else:
 		_agregar_mensaje("%s cantó %s y expone un %s." % [partida.nombre(jugador), ficha.nombre(), grupo])
+		_sonidos.tocar("cantar", 0.8)
 		mostrar_leccion("exponer")
 		_siguiente_turno()
 
@@ -410,6 +433,15 @@ func _resolver_cantos(cantos: Array[Dictionary], yo_la_queria: bool) -> void:
 func _terminar() -> void:
 	fase = Fase.FIN
 	_timer_rivales.stop()
+	var animar: bool = _menu.ajustes["animaciones"]
+	if partida.ganador == 0:
+		_sonidos.tocar("mahjong")
+		_celebracion.celebrar("¡MAHJONG!", true, animar)
+	elif partida.ganador > 0:
+		_sonidos.tocar("mahjong", 0.6)
+		_celebracion.celebrar("¡Mahjong de %s!" % Partida.NOMBRES[partida.ganador], false, animar)
+	else:
+		_sonidos.tocar("aviso")
 	if partida.ganador == -1:
 		_mostrar_mensaje("Se acabó el muro y nadie hizo Mahjong: ¡empate! Pulsa «Nueva partida».")
 		mostrar_leccion("muro_vacio")
@@ -559,6 +591,7 @@ func _cargar_progreso() -> void:
 		_nivel_elegido = config.has_section_key("partida", "nivel")
 		marcador = config.get_value("partida", "marcador", [0, 0, 0, 0])
 		_tutorial_hecho = config.get_value("partida", "tutorial_hecho", false)
+		_ajustes_guardados = config.get_value("ajustes", "valores", {})
 	_nivel = Niveles.obtener(nivel_id)
 
 
@@ -569,6 +602,8 @@ func _guardar_progreso() -> void:
 		config.set_value("partida", "nivel", nivel_id)
 	config.set_value("partida", "marcador", marcador)
 	config.set_value("partida", "tutorial_hecho", _tutorial_hecho)
+	if _menu:
+		config.set_value("ajustes", "valores", _menu.ajustes)
 	config.save(ARCHIVO_PROGRESO)
 
 
@@ -587,9 +622,11 @@ func empezar_tutorial() -> void:
 	_nivel = Niveles.obtener("facil").duplicate()
 	_nivel["explicaciones"] = false
 	_nivel["sugerencias"] = 0
-	pausa_rivales = pausa_forzada if pausa_forzada >= 0 else 1.8
+	pausa_rivales = _pausa(1.8)
 	_sugerencias_restantes = 0
 	partida = Tutorial.crear_partida(manos_tarjeta)
+	_ids_animadas.clear()
+	_descartes_mostrados = 0
 	charleston = partida.crear_charleston()
 	mano = partida.manos[0]
 	for m in manos_tarjeta:
@@ -621,6 +658,7 @@ func _tutorial_espera(accion: String) -> bool:
 	elif _paso_actual()["espera"] == "rivales":
 		_burbuja_aviso.text = "Espera un momento: están jugando los demás."
 	_burbuja_aviso.visible = true
+	_sonidos.tocar("aviso")
 	return false
 
 
@@ -793,12 +831,46 @@ func _estilo_rosa(luz: float = 0.0) -> StyleBoxFlat:
 
 
 # =============================================================================
+#  MENÚ PRINCIPAL Y AJUSTES
+# =============================================================================
+
+func _al_elegir_en_menu(opcion: String) -> void:
+	_menu.visible = false
+	match opcion:
+		"jugar":
+			_abrir_niveles()
+		"tutorial":
+			empezar_tutorial()
+		"tarjeta":
+			_abrir_tarjeta()
+		"reglas":
+			_abrir_reglas()
+
+
+## Aplica los ajustes del menú (sonido, volumen, velocidad, animaciones).
+func _aplicar_ajustes() -> void:
+	for clave in _ajustes_guardados:
+		_menu.ajustes[clave] = _ajustes_guardados[clave]
+	_ajustes_guardados = {}
+	_sonidos.activado = _menu.ajustes["sonido"]
+	_sonidos.volumen = _menu.ajustes["volumen"]
+	pausa_rivales = _pausa(1.8 if tutorial_activo else _nivel["pausa"])
+
+
+## La pausa de los rivales según el nivel y el ajuste de velocidad.
+func _pausa(base: float) -> float:
+	if pausa_forzada >= 0:
+		return pausa_forzada
+	return base * float(_menu.ajustes["velocidad"]) if _menu else base
+
+
+# =============================================================================
 #  NIVELES Y MARCADOR
 # =============================================================================
 
 func _hay_ventana_abierta() -> bool:
 	return _capa_leccion.visible or _capa_reglas.visible or _ventana_tarjeta.visible \
-		or _capa_niveles.visible or _capa_marcador.visible
+		or _capa_niveles.visible or _capa_marcador.visible or _menu.visible
 
 
 func _abrir_niveles() -> void:
@@ -949,12 +1021,14 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 			return
 		else:
 			seleccion.append(id)
+		_sonidos.tocar("seleccionar")
 		_mostrar_mensaje("%s · Elegidas: %d de 3." % [charleston.descripcion(), seleccion.size()])
 	elif fase == Fase.DESCARTAR:
 		var ya_estaba := id in seleccion
 		seleccion.clear()
 		if not ya_estaba:
 			seleccion.append(id)
+		_sonidos.tocar("seleccionar")
 	elif fase == Fase.TURNO_RIVAL:
 		_mostrar_mensaje("Espera: es el turno de %s." % partida.nombre(partida.turno))
 		return
@@ -1101,6 +1175,10 @@ func _refrescar_mano() -> void:
 		fv.nueva = ficha.id in ids_nuevas
 		fv.seleccionada = ficha.id in seleccion
 		fv.resaltada = ficha.id in _ids_resaltadas()
+		if ficha.id in ids_nuevas and not _ids_animadas.has(ficha.id):
+			_ids_animadas[ficha.id] = true
+			if _menu.ajustes["animaciones"]:
+				fv.animar_entrada()
 		fv.tocada.connect(_al_tocar_ficha)
 		fv.soltada_encima.connect(_al_soltar_ficha)
 		_fila_mano.add_child(fv)
@@ -1131,17 +1209,21 @@ func _refrescar_panel_izquierdo() -> void:
 		_texto_charleston.text = _texto_pasos_charleston()
 		return
 
-	# Grupos expuestos de los rivales (una fila por rival que tenga alguno).
+	# Los atriles de los rivales: sus fichas boca abajo (con el reverso del juego),
+	# cuántas les quedan y sus grupos expuestos. El que tiene el turno se resalta.
 	for hijo in _expuestas_rivales.get_children():
 		hijo.queue_free()
 	for j in range(1, 4):
-		if partida.expuestas[j].is_empty():
-			continue
 		var fila := HBoxContainer.new()
+		fila.add_theme_constant_override("separation", 8)
 		var nombre := Label.new()
-		nombre.text = partida.nombre(j) + ":"
+		nombre.text = partida.nombre(j)
 		nombre.custom_minimum_size.x = 150
+		if partida.turno == j and fase != Fase.FIN:
+			nombre.text = "▶ " + nombre.text
+			nombre.add_theme_color_override("font_color", Color("ffe082"))
 		fila.add_child(nombre)
+		fila.add_child(_atril(partida.manos[j].size()))
 		for g in partida.expuestas[j]:
 			fila.add_child(_grupo_pequeno(g))
 		_expuestas_rivales.add_child(fila)
@@ -1166,6 +1248,37 @@ func _refrescar_panel_izquierdo() -> void:
 		_titulo_izquierda.text = "Descartes · Turno de: %s" % partida.nombre(partida.turno)
 	for d in partida.descartes:
 		_fichas_descartadas.add_child(_ficha_pequena(d["ficha"], ABREVIATURAS[d["jugador"]]))
+	# El descarte nuevo aparece con un pequeño salto.
+	if partida.descartes.size() > _descartes_mostrados and _menu.ajustes["animaciones"]:
+		var ultima: FichaVisual = _fichas_descartadas.get_child(_fichas_descartadas.get_child_count() - 1).get_child(0)
+		ultima.animar_entrada(0.7, false)
+	_descartes_mostrados = partida.descartes.size()
+
+
+## Las fichas ocultas de un rival, boca abajo y un poco montadas unas sobre otras.
+func _atril(cuantas: int) -> Control:
+	var reverso := FichaVisual.diseno_de("reverso")
+	var ancho := 14.0
+	var alto := 30.0
+	var caja := Control.new()
+	caja.custom_minimum_size = Vector2(ancho * cuantas + 10, alto)
+	for i in cuantas:
+		var trozo: Control
+		if reverso:
+			var imagen := TextureRect.new()
+			imagen.texture = reverso
+			imagen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			trozo = imagen
+		else:
+			var liso := ColorRect.new()
+			liso.color = Color("1f4e8c")
+			trozo = liso
+		trozo.size = Vector2(22, alto)
+		trozo.position = Vector2(i * ancho, 0)
+		trozo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		caja.add_child(trozo)
+	caja.tooltip_text = "%d fichas" % cuantas
+	return caja
 
 
 ## Una ficha a tamaño reducido, con una etiqueta debajo (quién la descartó).
@@ -1254,6 +1367,8 @@ func _agregar_mensaje(texto: String) -> void:
 
 func _crear_interfaz() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	_sonidos = Sonidos.new()
+	add_child(_sonidos)
 
 	var fondo := ColorRect.new()
 	fondo.color = COLOR_FONDO
@@ -1286,7 +1401,7 @@ func _crear_interfaz() -> void:
 	_boton_marcador = _boton("Marcador", _abrir_marcador, 130)
 	barra.add_child(_boton_marcador)
 	barra.add_child(_boton("Tarjeta 2026", _abrir_tarjeta, 150))
-	barra.add_child(_boton("Reglas", _abrir_reglas, 110))
+	barra.add_child(_boton("Menú", func(): _menu.abrir(true), 100))
 	barra.add_child(_boton("Nueva partida", _abrir_niveles, 160))
 
 	# --- Zona central: Charleston/descartes a la izquierda, tarjeta a la derecha ---
@@ -1383,6 +1498,15 @@ func _crear_interfaz() -> void:
 	_crear_burbuja()
 	_crear_ventana_marcador()
 	_crear_ventana_niveles()
+	_celebracion = Celebracion.new()
+	add_child(_celebracion)
+	_menu = MenuPrincipal.new()
+	_menu.visible = false
+	_menu.elegido.connect(_al_elegir_en_menu)
+	_menu.ajustes_cambiados.connect(func():
+		_aplicar_ajustes()
+		_guardar_progreso())
+	add_child(_menu)
 
 
 ## Ventana que aparece encima del juego con una lección.
@@ -1498,6 +1622,7 @@ func _boton(texto: String, accion: Callable, ancho: int = 160) -> Button:
 	b.text = texto
 	b.custom_minimum_size = Vector2(ancho, 56)
 	b.add_theme_font_size_override("font_size", 20)
+	b.pressed.connect(func(): _sonidos.tocar("boton", 0.6))
 	b.pressed.connect(accion)
 	return b
 

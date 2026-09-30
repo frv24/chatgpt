@@ -196,3 +196,15 @@ func _actualizar_pulso() -> void:
 func _poner_brillo(valor: float) -> void:
 	_brillo = valor
 	_actualizar_estilo()
+
+
+## Pequeño salto al aparecer (fichas que acabas de recibir o robar, descartes nuevos).
+## `escala_final` es la escala normal de la ficha (menor en los descartes).
+## Con `centrada` = false crece desde la esquina (para fichas ya encogidas en un hueco).
+func animar_entrada(escala_final: float = 1.0, centrada: bool = true) -> void:
+	if centrada:
+		pivot_offset = TAMANO / 2
+	scale = Vector2.ONE * escala_final * 0.4
+	var tween := create_tween()
+	tween.tween_property(self, "scale", Vector2.ONE * escala_final, 0.35) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

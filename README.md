@@ -57,6 +57,14 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - Las fichas que te sirven llevan borde verde; las que no, se ven apagadas.
   - Cada mano trae su explicación y un consejo.
   - El botón **Sugerir** te dice qué fichas pasar o descartar, y por qué.
+- **Menú principal** con papel picado y un abanico de tus fichas: Jugar, Aprender a jugar,
+  Tarjeta 2026, Reglas y **Ajustes** (sonido, volumen, velocidad de los rivales y animaciones).
+- **Sonidos** generados por el propio juego (sin archivos): ficha en la mesa, robar, pasar,
+  cantar, aviso de turno y fanfarria de Mahjong. Si pones un sonido grabado con el mismo nombre
+  en `assets/sonidos/` (por ejemplo `mahjong.ogg`), se usa ese.
+- **Animaciones**: las fichas nuevas y los descartes aparecen con un pequeño salto, y el Mahjong
+  se celebra con confeti de colores del papel picado.
+- **Atriles de los rivales** con tu reverso: cuántas fichas les quedan y a quién le toca (▶).
 - **Controles táctiles**: tocas una ficha para seleccionarla y la arrastras para reordenar tu mano.
 
 ## Cómo está organizado
@@ -79,6 +87,9 @@ scripts/ui/              Todo lo que se ve en pantalla
   main.gd                La pantalla de juego
   ventana_tarjeta.gd     La ventana «Tarjeta 2026»
   papel_picado.gd        El adorno de papel picado
+  menu_principal.gd      La pantalla de inicio y los Ajustes
+  sonidos.gd             Los sonidos (generados con código)
+  celebracion.gd         El confeti y el letrero de ¡Mahjong!
 tests/test_logica.gd     Pruebas automáticas de las reglas
 ```
 
@@ -108,5 +119,5 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 - [x] Niveles Fácil, Normal, Intermedio y Experto, con puntos y marcador en los dos últimos
 - [x] Tutorial interactivo «Aprender a jugar»
 - [x] Diseños propios de las fichas (tema mexicano: Nopal, Picado, Sol…; ver `assets/fichas/LEEME.md`)
-- [ ] Sonidos y animaciones
+- [x] Sonidos, animaciones, menú principal, ajustes y atriles con el reverso
 - [ ] Exportar a Android (Proyecto > Exportar) y después a iOS
