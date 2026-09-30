@@ -13,13 +13,14 @@ const CAFE := Color("3b2a1a")
 const ABANICO := ["bam2", "car5", "dR", "comodin", "dV", "cir8", "flor"]
 
 ## Ajustes que se guardan (main.gd los lee y los guarda en progreso.cfg).
-var ajustes := {"sonido": true, "volumen": 0.8, "velocidad": 1.0, "animaciones": true}
+var ajustes := {"sonido": true, "volumen": 0.8, "velocidad": 1.0, "animaciones": true, "letra_grande": false}
 
 var _boton_continuar: Button
 var _capa_ajustes: Control
 var _control_sonido: CheckButton
 var _control_volumen: HSlider
 var _control_animaciones: CheckButton
+var _control_letra: CheckButton
 var _botones_velocidad := {}
 
 
@@ -84,6 +85,7 @@ func abrir_ajustes() -> void:
 	_control_sonido.button_pressed = ajustes["sonido"]
 	_control_volumen.value = ajustes["volumen"]
 	_control_animaciones.button_pressed = ajustes["animaciones"]
+	_control_letra.button_pressed = ajustes.get("letra_grande", false)
 	_marcar_velocidad()
 	_capa_ajustes.visible = true
 
@@ -208,6 +210,13 @@ func _crear_ajustes() -> void:
 	_colores_cafe(_control_animaciones)
 	_control_animaciones.toggled.connect(func(v): _cambiar("animaciones", v))
 	caja.add_child(_control_animaciones)
+
+	_control_letra = CheckButton.new()
+	_control_letra.text = "Letra grande (más fácil de leer)"
+	_control_letra.add_theme_font_size_override("font_size", 22)
+	_colores_cafe(_control_letra)
+	_control_letra.toggled.connect(func(v): _cambiar("letra_grande", v))
+	caja.add_child(_control_letra)
 
 	var cerrar := _boton_grande("Listo", "", true)
 	cerrar.custom_minimum_size = Vector2(200, 56)

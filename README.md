@@ -21,6 +21,9 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - Segundo Charleston opcional (izquierda, enfrente, derecha).
   - Pase de cortesía de 0 a 3 fichas.
   - Los comodines no se pueden pasar, y las fichas que recibes se marcan en amarillo.
+  - **Pase a ciegas**: lo que recibes en el pase de enfrente llega boca abajo (con tu reverso).
+    En el último pase de cada Charleston puedes pasar esas fichas sin mirarlas, o pulsar
+    «Mirar fichas» para recogerlas.
 - **Partida por turnos contra 3 rivales de la máquina**:
   - El Este empieza con 14 fichas y descarta sin robar; el turno pasa a la derecha.
   - Los rivales roban, descartan y pueden ganar. Si gana uno, ves su mano.
@@ -58,7 +61,8 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   - Cada mano trae su explicación y un consejo.
   - El botón **Sugerir** te dice qué fichas pasar o descartar, y por qué.
 - **Menú principal** con papel picado y un abanico de tus fichas: Jugar, Aprender a jugar,
-  Tarjeta 2026, Reglas y **Ajustes** (sonido, volumen, velocidad de los rivales y animaciones).
+  Tarjeta 2026, Reglas y **Ajustes** (sonido, volumen, velocidad de los rivales, animaciones
+  y **letra grande**, que agranda un 20% todos los textos para leer mejor).
 - **Sonidos** generados por el propio juego (sin archivos): ficha en la mesa, robar, pasar,
   cantar, aviso de turno y fanfarria de Mahjong. Si pones un sonido grabado con el mismo nombre
   en `assets/sonidos/` (por ejemplo `mahjong.ogg`), se usa ese.
@@ -111,7 +115,8 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
 
 ## Próximos pasos
 - [x] El Charleston, guiado paso a paso
-- [ ] El "pase a ciegas" del Charleston (pasar fichas recibidas sin mirarlas)
+- [x] El "pase a ciegas" del Charleston (pasar fichas recibidas sin mirarlas)
+- [x] Letra grande en los ajustes
 - [x] Que los 3 rivales jueguen turnos: robar y descartar
 - [x] Lecciones con el porqué de cada regla y cómo se hace en la mesa real
 - [x] Cantar descartes (pung, kong, quint, Mahjong) y mostrar los grupos expuestos

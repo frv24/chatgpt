@@ -75,6 +75,7 @@ var _titulo_izquierda: Label
 var _zona_descartes: ScrollContainer
 var _fichas_descartadas: HFlowContainer
 var _texto_charleston: Label
+var _zona_charleston: ScrollContainer
 var _lista_tarjeta: ItemList
 var _texto_objetivo: Label
 var _titulo_tarjeta: Label
@@ -110,6 +111,7 @@ var _menu: MenuPrincipal
 ## Fichas que ya hicieron su animación de entrada (para no repetirla en cada refresco).
 var _ids_animadas := {}
 var _ajustes_guardados := {}
+var _factor_letra := 1.0
 var _descartes_mostrados := 0
 var _reglas: Dictionary  # etiquetas de la ventana de reglas
 var _analisis_lista: Array[Dictionary] = []
@@ -186,7 +188,10 @@ func pasar_fichas() -> void:
 	if recibidas.is_empty():
 		texto += " y no recibiste ninguna."
 	else:
-		texto += " y recibiste: %s (en amarillo)." % _nombres(recibidas)
+		var de_verdad: Array[Ficha] = recibidas.filter(func(f): return not charleston.reveladas.has(f))
+		texto += " y recibiste: %s (en amarillo)." % _nombres(de_verdad)
+		if not charleston.reveladas.is_empty():
+			texto += " Las boca abajo que no pasaste eran: %s." % _nombres(charleston.reveladas)
 	_sonidos.tocar("pasar")
 	_despues_de_un_paso(texto)
 
@@ -505,7 +510,27 @@ func _fichas_seleccionadas() -> Array[Ficha]:
 	for f in mano:
 		if f.id in seleccion:
 			elegidas.append(f)
+	# En el pase a ciegas también cuentan las fichas boca abajo de la bandeja.
+	if fase == Fase.CHARLESTON:
+		for f in charleston.bandeja:
+			if f.id in seleccion:
+				elegidas.append(f)
 	return elegidas
+
+
+## «Mirar fichas»: recoger las fichas boca abajo y ponerlas en la mano.
+func mirar_bandeja() -> void:
+	if fase != Fase.CHARLESTON or charleston.bandeja.is_empty():
+		return
+	if tutorial_activo and not _tutorial_espera("-"):
+		return
+	var recogidas := charleston.recoger_bandeja()
+	for f in recogidas:
+		seleccion.erase(f.id)
+		ids_nuevas.append(f.id)
+	_sonidos.tocar("robar")
+	_mostrar_mensaje("Recogiste: %s (en amarillo). %s." % [_nombres(recogidas), charleston.descripcion()])
+	_refrescar()
 
 
 func _pasando_fichas() -> bool:
@@ -855,6 +880,24 @@ func _aplicar_ajustes() -> void:
 	_sonidos.activado = _menu.ajustes["sonido"]
 	_sonidos.volumen = _menu.ajustes["volumen"]
 	pausa_rivales = _pausa(1.8 if tutorial_activo else _nivel["pausa"])
+	var factor := 1.2 if _menu.ajustes.get("letra_grande", false) else 1.0
+	if factor != _factor_letra:
+		_factor_letra = factor
+		_aplicar_letra(self)
+
+
+## Letra grande: multiplica el tamaño de todos los textos (menos el de las fichas).
+## Guarda el tamaño original de cada texto para poder volver atrás.
+func _aplicar_letra(raiz: Node) -> void:
+	for hijo in raiz.get_children():
+		if hijo is FichaVisual or hijo.has_meta("sin_escalar"):
+			continue
+		if hijo is Label or hijo is Button or hijo is ItemList:
+			if not hijo.has_meta("tam_base"):
+				hijo.set_meta("tam_base", hijo.get_theme_font_size("font_size"))
+			var base: int = hijo.get_meta("tam_base")
+			hijo.add_theme_font_size_override("font_size", roundi(base * _factor_letra))
+		_aplicar_letra(hijo)
 
 
 ## La pausa de los rivales según el nivel y el ajuste de velocidad.
@@ -1089,6 +1132,9 @@ func _refrescar() -> void:
 	_refrescar_mano()
 	_refrescar_panel_izquierdo()
 	_mensaje.visible = not tutorial_activo
+	if _factor_letra != 1.0:
+		# Los textos que se crean de nuevo en cada refresco (atriles, descartes...).
+		_aplicar_letra(self)
 	_revisar_tutorial()
 
 
@@ -1183,11 +1229,30 @@ func _refrescar_mano() -> void:
 		fv.soltada_encima.connect(_al_soltar_ficha)
 		_fila_mano.add_child(fv)
 
-	# Tus grupos expuestos, encima de la mano.
+	# Encima de la mano: tus grupos expuestos o, en el Charleston, las fichas boca abajo.
 	for hijo in _fila_expuestas.get_children():
 		hijo.queue_free()
-	_fila_expuestas.visible = not partida.expuestas[0].is_empty()
-	if _fila_expuestas.visible:
+	var hay_bandeja := fase == Fase.CHARLESTON and not charleston.bandeja.is_empty()
+	_fila_expuestas.visible = hay_bandeja or not partida.expuestas[0].is_empty()
+	if hay_bandeja:
+		var aviso := Label.new()
+		aviso.text = "Recibidas boca abajo: tócalas para pasarlas a ciegas, o"
+		_fila_expuestas.add_child(aviso)
+		for f in charleston.bandeja:
+			var fv := FichaVisual.new(f)
+			fv.boca_abajo = true
+			fv.seleccionada = f.id in seleccion
+			fv.tocada.connect(_al_tocar_ficha)
+			# Un poco más pequeñas que las de la mano, para que quepa todo.
+			fv.scale = Vector2(0.7, 0.7)
+			var hueco := Control.new()
+			hueco.custom_minimum_size = FichaVisual.TAMANO * 0.7
+			hueco.add_child(fv)
+			_fila_expuestas.add_child(hueco)
+		var mirar := _boton("Mirar fichas", mirar_bandeja, 160)
+		mirar.custom_minimum_size.y = 46
+		_fila_expuestas.add_child(mirar)
+	elif _fila_expuestas.visible:
 		var etiqueta := Label.new()
 		etiqueta.text = "Tus grupos expuestos:"
 		_fila_expuestas.add_child(etiqueta)
@@ -1198,7 +1263,7 @@ func _refrescar_mano() -> void:
 ## El panel de la izquierda muestra los pasos del Charleston o, al jugar, los descartes.
 func _refrescar_panel_izquierdo() -> void:
 	var en_charleston := fase == Fase.CHARLESTON
-	_texto_charleston.visible = en_charleston and not tutorial_activo
+	_zona_charleston.visible = en_charleston and not tutorial_activo
 	_zona_descartes.visible = not en_charleston and not tutorial_activo
 	_expuestas_rivales.visible = not en_charleston and not tutorial_activo
 	if tutorial_activo:
@@ -1403,6 +1468,10 @@ func _crear_interfaz() -> void:
 	barra.add_child(_boton("Tarjeta 2026", _abrir_tarjeta, 150))
 	barra.add_child(_boton("Menú", func(): _menu.abrir(true), 100))
 	barra.add_child(_boton("Nueva partida", _abrir_niveles, 160))
+	# El título y los botones de arriba no crecen con la letra grande (no cabrían).
+	for hijo in barra.get_children():
+		if hijo is Button or hijo == titulo:
+			hijo.set_meta("sin_escalar", true)
 
 	# --- Zona central: Charleston/descartes a la izquierda, tarjeta a la derecha ---
 	var centro := HBoxContainer.new()
@@ -1415,9 +1484,16 @@ func _crear_interfaz() -> void:
 	centro.add_child(panel_izquierdo)
 	var caja_izquierda := panel_izquierdo.get_child(0)
 	_titulo_izquierda = caja_izquierda.get_child(0) as Label
+	# Los pasos del Charleston van en un área con desplazamiento para que, si falta sitio
+	# (letra grande, pase a ciegas), no empujen la mano fuera de la pantalla.
+	_zona_charleston = ScrollContainer.new()
+	_zona_charleston.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_zona_charleston.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	caja_izquierda.add_child(_zona_charleston)
 	_texto_charleston = Label.new()
 	_texto_charleston.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	caja_izquierda.add_child(_texto_charleston)
+	_texto_charleston.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_zona_charleston.add_child(_texto_charleston)
 	_expuestas_rivales = VBoxContainer.new()
 	caja_izquierda.add_child(_expuestas_rivales)
 	_zona_descartes = ScrollContainer.new()

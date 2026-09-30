@@ -11,7 +11,10 @@ extends RefCounted
 ##        izquierda -> enfrente -> derecha
 ##   3. PASE DE CORTESÍA (opcional): de 0 a 3 fichas con el jugador de enfrente.
 ##   - Los comodines NUNCA se pueden pasar.
-##   (El "pase a ciegas" de las reglas oficiales se añadirá más adelante).
+##   - PASE A CIEGAS: en el último pase de cada Charleston (el primer "izquierda" y el
+##     segundo "derecha") puedes pasar, sin mirarlas, fichas que te acaban de dar.
+##     Por eso las fichas que recibes en el pase anterior ("enfrente") llegan boca abajo
+##     a una bandeja: puedes pasarlas a ciegas o recogerlas y mirarlas.
 ##
 ## Asientos: 0 = tú, 1 = el jugador de tu derecha, 2 = el de enfrente,
 ## 3 = el de tu izquierda. Para pasar "a la derecha", el jugador i le da
@@ -37,6 +40,10 @@ var etapa := Etapa.PRIMERO
 var indice_pase := 0
 ## Fichas que acabas de recibir (para resaltarlas en pantalla).
 var ultimas_recibidas: Array[Ficha] = []
+## Fichas recibidas boca abajo, disponibles para el pase a ciegas.
+var bandeja: Array[Ficha] = []
+## Fichas boca abajo que no pasaste en el último pase y volvieron a tu mano.
+var reveladas: Array[Ficha] = []
 
 
 func _init(p_manos: Array, p_manos_tarjeta: Array[Dictionary]) -> void:
@@ -50,6 +57,20 @@ func mano_jugador() -> Array[Ficha]:
 
 func terminado() -> bool:
 	return etapa == Etapa.TERMINADO
+
+
+## ¿El pase actual permite pasar a ciegas? (El último de cada Charleston.)
+func es_pase_ciego() -> bool:
+	return (etapa == Etapa.PRIMERO or etapa == Etapa.SEGUNDO) and indice_pase == 2
+
+
+## Recoger las fichas de la bandeja (mirarlas y ponerlas en la mano).
+## Devuelve las fichas recogidas.
+func recoger_bandeja() -> Array[Ficha]:
+	var recogidas := bandeja.duplicate()
+	mano_jugador().append_array(bandeja)
+	bandeja.clear()
+	return recogidas
 
 
 ## Dirección del pase que toca ahora.
@@ -68,16 +89,22 @@ func direccion_actual() -> int:
 func descripcion() -> String:
 	match etapa:
 		Etapa.PRIMERO:
-			return "Primer Charleston · pase %d de 3: elige 3 fichas para pasar a %s %s" % [
-				indice_pase + 1, NOMBRE_DIRECCION[direccion_actual()], FLECHA[direccion_actual()]]
+			return "Primer Charleston · pase %d de 3: elige 3 fichas para pasar a %s %s%s" % [
+				indice_pase + 1, NOMBRE_DIRECCION[direccion_actual()], FLECHA[direccion_actual()], _nota_ciego()]
 		Etapa.PREGUNTA_SEGUNDO:
 			return "Primer Charleston terminado. ¿Quieres hacer el segundo Charleston?"
 		Etapa.SEGUNDO:
-			return "Segundo Charleston · pase %d de 3: elige 3 fichas para pasar a %s %s" % [
-				indice_pase + 1, NOMBRE_DIRECCION[direccion_actual()], FLECHA[direccion_actual()]]
+			return "Segundo Charleston · pase %d de 3: elige 3 fichas para pasar a %s %s%s" % [
+				indice_pase + 1, NOMBRE_DIRECCION[direccion_actual()], FLECHA[direccion_actual()], _nota_ciego()]
 		Etapa.CORTESIA:
 			return "Pase de cortesía: elige de 0 a 3 fichas para pasar ENFRENTE ↑ (0 = no pasar nada)"
 	return "Charleston terminado. ¡A jugar!"
+
+
+func _nota_ciego() -> String:
+	if es_pase_ciego() and not bandeja.is_empty():
+		return " (puedes incluir fichas boca abajo: pase a ciegas)"
+	return ""
 
 
 ## Comprueba si un pase es válido. Devuelve "" si está bien, o el motivo del error.
@@ -93,7 +120,9 @@ func validar_pase(pase: Array[Ficha]) -> String:
 	for f in pase:
 		if f.es_comodin():
 			return "Los comodines no se pueden pasar en el Charleston."
-		if not mano_jugador().has(f):
+		if bandeja.has(f) and not es_pase_ciego():
+			return "Ahora no se puede pasar a ciegas."
+		if not mano_jugador().has(f) and not bandeja.has(f):
 			return "Esa ficha no está en tu mano."
 	return ""
 
@@ -115,17 +144,27 @@ func pasar(pase_jugador: Array[Ficha], pases_forzados: Dictionary = {}) -> Array
 		pases[i] = pases_forzados[i] if pases_forzados.has(i) else \
 			Asesor.fichas_que_sobran(manos[i], manos_tarjeta, cantidad)
 
-	# 2. Cada jugador quita de su mano lo que pasa...
+	# 2. Cada jugador quita de su mano (o de su bandeja) lo que pasa...
 	for i in 4:
 		for f in pases[i]:
 			manos[i].erase(f)
-	# 3. ...y recibe lo que le pasan.
+			if i == 0:
+				bandeja.erase(f)
+	# 3. ...lo que quedó en tu bandeja sin pasar vuelve a tu mano...
+	reveladas = recoger_bandeja()
+	# 4. ...y cada uno recibe lo que le pasan.
+	var siguiente_es_ciego := (etapa == Etapa.PRIMERO or etapa == Etapa.SEGUNDO) and indice_pase == 1
 	for i in 4:
 		var destino := (i + direccion) % 4
 		for f in pases[i]:
-			manos[destino].append(f)
+			if destino == 0 and siguiente_es_ciego:
+				bandeja.append(f)  # llegan boca abajo para el pase a ciegas
+			else:
+				manos[destino].append(f)
 
 	ultimas_recibidas.assign(pases[(4 - direccion) % 4])
+	# Las fichas de la bandeja que no pasaste también son "nuevas" para ti.
+	ultimas_recibidas.append_array(reveladas)
 	_avanzar()
 	return ultimas_recibidas
 

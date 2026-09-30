@@ -26,6 +26,7 @@ func _init() -> void:
 	probar_niveles()
 	probar_puntuacion()
 	probar_tutorial()
+	probar_pase_a_ciegas()
 	probar_lecciones()
 
 	print("")
@@ -587,3 +588,37 @@ func probar_tutorial() -> void:
 	for paso in Tutorial.PASOS:
 		pasos_ok = pasos_ok and paso.has("texto") and paso.has("espera") and paso.has("resaltar")
 	comprobar(pasos_ok, "los %d pasos del tutorial están completos" % Tutorial.PASOS.size())
+
+
+func probar_pase_a_ciegas() -> void:
+	print("Pase a ciegas:")
+	var manos := _repartir_cuatro(99)
+	var ids_antes := _ids_de(manos)
+	var ch := Charleston.new(manos, Tarjeta.manos())
+	comprobar(not ch.es_pase_ciego(), "el primer pase no es a ciegas")
+	ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	var recibidas := ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(ch.bandeja.size() == 3 and ch.mano_jugador().size() == 10,
+		"lo que recibes de enfrente llega boca abajo a la bandeja")
+	comprobar(ch.es_pase_ciego(), "el pase a la izquierda permite pasar a ciegas")
+
+	# Pasas 2 fichas a ciegas y 1 de tu mano.
+	var a_ciegas: Array[Ficha] = [ch.bandeja[0], ch.bandeja[1]]
+	var pase: Array[Ficha] = a_ciegas.duplicate()
+	pase.append(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 1)[0])
+	comprobar(ch.validar_pase(pase) == "", "se puede mezclar fichas a ciegas y de la mano")
+	var sobrante: Ficha = ch.bandeja[2]
+	ch.pasar(pase)
+	comprobar(ch.bandeja.is_empty() and ch.mano_jugador().size() == 13, "tras el pase sigues con 13 fichas")
+	comprobar(ch.mano_jugador().has(sobrante), "la ficha que no pasaste a ciegas vuelve a tu mano")
+	comprobar(manos[3].has(a_ciegas[0]) and manos[3].has(a_ciegas[1]), "las fichas a ciegas llegan al jugador de tu izquierda")
+	comprobar(_ids_de(manos) == ids_antes, "no se pierde ninguna ficha")
+
+	# Segundo Charleston: también hay bandeja antes del último pase; se puede recoger.
+	ch.decidir_segundo(true)
+	ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	ch.pasar(Asesor.fichas_que_sobran(ch.mano_jugador(), Tarjeta.manos(), 3))
+	comprobar(ch.bandeja.size() == 3 and ch.es_pase_ciego(), "en el segundo Charleston hay pase a ciegas a la derecha")
+	var recogidas := ch.recoger_bandeja()
+	comprobar(recogidas.size() == 3 and ch.mano_jugador().size() == 13 and ch.bandeja.is_empty(),
+		"«Mirar fichas» las pone en tu mano")

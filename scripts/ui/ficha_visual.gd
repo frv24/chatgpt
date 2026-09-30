@@ -57,6 +57,8 @@ var _caja_textos := VBoxContainer.new()
 var _etiqueta_grande := Label.new()
 var _etiqueta_pequena := Label.new()
 var _imagen: TextureRect = null
+## Si es true, la ficha se ve boca abajo (con el reverso): no se sabe cuál es.
+var boca_abajo := false
 
 
 ## Devuelve la imagen del diseño de una ficha, o null si todavía no hay diseño.
@@ -86,7 +88,14 @@ func _init(p_ficha: Ficha = null) -> void:
 
 
 func _ready() -> void:
-	var textura := diseno_de(ficha.clave())
+	var textura := diseno_de("reverso" if boca_abajo else ficha.clave())
+	if boca_abajo and textura == null:
+		# Sin diseño de reverso: un rectángulo azul liso.
+		_etiqueta_grande.text = "?"
+		_etiqueta_pequena.text = "boca abajo"
+		_actualizar_estilo()
+		tooltip_text = "Ficha boca abajo"
+		return
 	if textura:
 		# Hay diseño: se muestra la imagen en lugar del texto.
 		_imagen = TextureRect.new()
@@ -99,7 +108,7 @@ func _ready() -> void:
 	else:
 		_actualizar_texto()
 	_actualizar_pulso()
-	tooltip_text = ficha.nombre()
+	tooltip_text = "Ficha boca abajo" if boca_abajo else ficha.nombre()
 
 
 func _actualizar_texto() -> void:
@@ -164,6 +173,8 @@ func _gui_input(evento: InputEvent) -> void:
 # --- Arrastrar y soltar (lo gestiona Godot automáticamente) --------------------
 
 func _get_drag_data(_posicion: Vector2) -> Variant:
+	if boca_abajo:
+		return null
 	# La "vista previa" es una copia de la ficha que sigue al dedo.
 	var vista := FichaVisual.new(ficha)
 	vista.modulate.a = 0.8

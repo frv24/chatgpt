@@ -54,7 +54,7 @@ const TODAS := {
 	"ultimo_pase": {
 		"titulo": "El último pase y el \"pase a ciegas\"",
 		"texto": "El tercer pase del primer Charleston (a la izquierda) permite el \"pase a ciegas\". Si no quieres romper tu mano, puedes pasar 1, 2 o 3 de las fichas que te acaban de dar SIN MIRARLAS, y completar hasta 3 con fichas tuyas. Lo mismo vale en el último pase del segundo Charleston (a la derecha).",
-		"mesa": "Recoge las fichas que te pasan sin darles la vuelta y pásalas directamente. En esta app el pase a ciegas todavía no está disponible.",
+		"mesa": "Recoge las fichas que te pasan sin darles la vuelta y pásalas directamente. En esta app, las fichas que recibes en el pase de enfrente llegan boca abajo: tócalas para pasarlas a ciegas o pulsa «Mirar fichas» para recogerlas.",
 	},
 	"segundo_charleston": {
 		"titulo": "¿Hacemos el segundo Charleston?",
