@@ -1,13 +1,13 @@
 # Política de privacidad de Mahjong en Español
 
-*Borrador. Antes de publicarlo, completa los datos entre corchetes, revisa que todo siga
-siendo cierto en la versión que publiques y, si tienes dudas legales, consúltalo con
-un profesional.*
+*Antes de publicarla, escribe tu correo de contacto donde dice [tu correo de contacto] y
+revisa que todo siga siendo cierto en la versión que publiques. Si tienes dudas legales,
+consúltalo con un profesional.*
 
-**Última actualización:** [fecha]
+**Última actualización:** 1 de octubre de 2026
 
 Esta política explica qué información usa la app **Mahjong en Español**
-(`com.mahjongenespanol`), publicada por [tu nombre o el de tu empresa].
+(`com.mahjongenespanol`), publicada por **Todo Que Ver Games** (Torreón, Coahuila, México).
 
 ## Qué información recogemos
 **Ninguna.** La app no pide registro, no usa cuentas, no tiene anuncios, no incluye
