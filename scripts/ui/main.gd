@@ -1440,7 +1440,7 @@ func _refrescar_panel_izquierdo() -> void:
 			ganadora.append_array(g["fichas"])
 		ganadora.sort_custom(func(a: Ficha, b: Ficha): return a.orden() < b.orden())
 		for ficha in ganadora:
-			_fichas_descartadas.add_child(_ficha_pequena(ficha, ""))
+			_fichas_descartadas.add_child(_ficha_pequena(ficha, "", 0.6))
 		return
 
 	if fase == Fase.FIN:
@@ -1452,7 +1452,7 @@ func _refrescar_panel_izquierdo() -> void:
 	# El descarte nuevo aparece con un pequeño salto.
 	if partida.descartes.size() > _descartes_mostrados and _menu.ajustes["animaciones"]:
 		var ultima: FichaVisual = _fichas_descartadas.get_child(_fichas_descartadas.get_child_count() - 1).get_child(0)
-		ultima.animar_entrada(0.7, false)
+		ultima.animar_entrada(0.5, false)
 	_descartes_mostrados = partida.descartes.size()
 
 
@@ -1483,19 +1483,19 @@ func _atril(cuantas: int) -> Control:
 
 
 ## Una ficha a tamaño reducido, con una etiqueta debajo (quién la descartó).
-func _ficha_pequena(ficha: Ficha, etiqueta: String) -> Control:
-	var escala := 0.7
+func _ficha_pequena(ficha: Ficha, etiqueta: String, escala: float = 0.5) -> Control:
 	var fv := FichaVisual.new(ficha)
 	fv.scale = Vector2(escala, escala)
 	# No se puede arrastrar, pero al tocarla se ve en grande.
 	fv.arrastrable = false
 	fv.tocada.connect(_mostrar_lupa)
 	var hueco := Control.new()
-	hueco.custom_minimum_size = FichaVisual.TAMANO * escala + Vector2(0, 18)
+	hueco.custom_minimum_size = FichaVisual.TAMANO * escala + Vector2(0, 14 if etiqueta != "" else 0)
 	hueco.add_child(fv)
 	var texto := Label.new()
 	texto.text = etiqueta
-	texto.add_theme_font_size_override("font_size", 12)
+	texto.add_theme_font_size_override("font_size", 10)
+	texto.set_meta("sin_escalar", true)
 	texto.position = Vector2(0, FichaVisual.TAMANO.y * escala)
 	texto.size.x = FichaVisual.TAMANO.x * escala
 	texto.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1747,6 +1747,8 @@ func _crear_interfaz() -> void:
 	_zona_descartes.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	caja_lado.add_child(_zona_descartes)
 	_fichas_descartadas = HFlowContainer.new()
+	_fichas_descartadas.add_theme_constant_override("h_separation", 3)
+	_fichas_descartadas.add_theme_constant_override("v_separation", 3)
 	_fichas_descartadas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zona_descartes.add_child(_fichas_descartadas)
 

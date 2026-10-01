@@ -6,7 +6,8 @@ extends Control
 ## Cada jugador tiene su atril con sus fichas boca abajo y su viento (Este, Sur, Oeste, Norte).
 ## Durante el Charleston, unas flechas enseñan hacia dónde van las fichas (la tuya en
 ## amarillo) y, al pasar, las fichas se mueven por la mesa. Al jugar, brilla quien tiene
-## el turno y en el centro se ve cuántas fichas quedan en el muro.
+## el turno y en el centro se ve la última ficha descartada (con una línea hacia quien la
+## tiró) y cuántas fichas quedan en el muro.
 
 ## Todo se dibuja en un cuadrado de este tamaño y luego se ajusta al espacio disponible.
 const LADO := 250.0
@@ -26,10 +27,15 @@ var _avance_pase := -1.0  # animación de un pase: de 0 a 1 (-1 = no hay animaci
 var _direccion_animada := 0
 var _brillo := 0.0  # pulso de las flechas
 var _reverso: Texture2D
+## La última ficha descartada (se dibuja en el centro) y quién la tiró.
+var _descarte: Ficha = null
+var _quien_descarto := -1
+var _escala_descarte := 1.0
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(250, 250)
+	custom_minimum_size = Vector2(300, 0)
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_reverso = FichaVisual.diseno_de("reverso")
 
@@ -44,6 +50,20 @@ func actualizar(p: Partida, direccion: int, turno: bool) -> void:
 	partida = p
 	direccion_pase = direccion
 	mostrar_turno = turno
+	var ultimo: Dictionary = p.descartes.back() if turno and not p.descartes.is_empty() else {}
+	var ficha: Ficha = ultimo.get("ficha")
+	if ficha != _descarte:
+		_descarte = ficha
+		_quien_descarto = ultimo.get("jugador", -1)
+		if ficha:
+			# La ficha nueva aparece con un pequeño salto.
+			var tween := create_tween()
+			tween.tween_method(_poner_escala_descarte, 0.4, 1.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	queue_redraw()
+
+
+func _poner_escala_descarte(valor: float) -> void:
+	_escala_descarte = valor
 	queue_redraw()
 
 
@@ -94,8 +114,35 @@ func _draw() -> void:
 			_dibujar_fichas_en_camino(j, (j + _direccion_animada) % 4, c)
 	elif direccion_pase == 0:
 		var fuente := get_theme_default_font()
-		_texto(fuente, "Muro", c + Vector2(0, -4), 14, Color(1, 1, 1, 0.7))
-		_texto(fuente, str(partida.mazo.quedan()), c + Vector2(0, 18), 22, Color.WHITE)
+		if _descarte:
+			_dibujar_descarte(c, fuente)
+		else:
+			_texto(fuente, "Muro", c + Vector2(0, -4), 14, Color(1, 1, 1, 0.7))
+			_texto(fuente, str(partida.mazo.quedan()), c + Vector2(0, 18), 22, Color.WHITE)
+
+
+## La última ficha descartada en el centro, con una línea hacia quien la tiró.
+func _dibujar_descarte(c: Vector2, fuente: Font) -> void:
+	var tam := Vector2(46, 63) * _escala_descarte
+	var rect := Rect2(c + Vector2(0, -6) - tam / 2, tam)
+	if _quien_descarto >= 0:
+		var desde: Vector2 = c + DIRECCIONES[_quien_descarto] * 62
+		var hasta: Vector2 = rect.get_center() + DIRECCIONES[_quien_descarto] * 30
+		draw_line(desde, hasta, Color(AMARILLO, 0.6), 3.0, true)
+		draw_circle(desde, 4, Color(AMARILLO, 0.8))
+	var fondo := StyleBoxFlat.new()
+	fondo.bg_color = Color("fbf6e9")
+	fondo.border_color = AMARILLO
+	fondo.set_border_width_all(2)
+	fondo.set_corner_radius_all(5)
+	draw_style_box(fondo, rect)
+	var diseno := FichaVisual.diseno_de(_descarte.clave())
+	if diseno:
+		draw_texture_rect(diseno, rect.grow(-2), false)
+	else:
+		_texto(fuente, _descarte.nombre(), rect.get_center(), 10, Color("3b2a1a"))
+	_texto(fuente, _descarte.nombre(), c + Vector2(0, 40), 13, Color.WHITE)
+	_texto(fuente, "Muro: %d" % partida.mazo.quedan(), c + Vector2(0, 55), 11, Color(1, 1, 1, 0.65))
 
 
 ## El atril de un jugador (sus fichas boca abajo) y su nombre con su viento.

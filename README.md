@@ -80,7 +80,8 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
 - **La mesa vista desde arriba**: tú abajo, Derecha, Enfrente e Izquierda en su lado, cada uno con
   su viento (Este, Sur, Oeste, Norte) y su atril con tu reverso. En el Charleston, unas flechas
   enseñan hacia dónde van las fichas (la tuya en amarillo) y se ven viajar al pasar; al jugar,
-  brilla quien tiene el turno y en el centro se ve el muro.
+  brilla quien tiene el turno y en el centro se ve la última ficha descartada, con una
+  línea hacia quien la tiró, y cuántas quedan en el muro. Los descartes van en pequeño al lado.
 - **Tarjeta para aprender** (Fácil, Normal e Intermedio): primero salen las manos a las que más te
   acercas, dibujadas con tus fichas encendidas y las que te faltan apagadas («Tienes 9 de 14»).
   El botón «Ver por secciones» la muestra como la tarjeta impresa.
