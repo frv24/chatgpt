@@ -17,6 +17,8 @@ enum Fase { CHARLESTON, TURNO_RIVAL, ROBAR, DESCARTAR, DECIDIR_CANTO, FIN }
 const COLOR_FONDO := Color("0f5132")  # verde tapete
 const ARCHIVO_PROGRESO := "user://progreso.cfg"
 const ABREVIATURAS := ["Tú", "Der", "Enf", "Izq"]
+## Tamaño de las fichas de tu mano (más grandes que las demás, para tocarlas bien).
+const TAMANO_MANO := Vector2(82, 113)
 
 ## Segundos que tarda cada rival en jugar su turno (para que se vea qué hace).
 ## Lo decide el nivel; `pausa_forzada` (si es >= 0) lo sustituye (para pruebas).
@@ -99,6 +101,12 @@ var _boton_no_cantar: Button
 var _boton_cambiar_comodin: Button
 var _fila_expuestas: HBoxContainer
 var _expuestas_rivales: VBoxContainer
+var _mesa: Mesa
+# La «lupa»: al tocar una ficha se ve en grande un momento.
+var _lupa: PanelContainer
+var _lupa_hueco: Control
+var _lupa_nombre: Label
+var _lupa_tween: Tween
 var _timer_rivales: Timer
 var _capa_leccion: Control
 var _leccion: Dictionary  # etiquetas de la ventana de lección
@@ -194,6 +202,8 @@ func pasar_fichas() -> void:
 		_avanzar_tutorial()
 		return
 
+	if not pase.is_empty():
+		_mesa.animar_pase(direccion)
 	var texto := "Pasaste %d fichas %s" % [pase.size(), Charleston.FLECHA[direccion]]
 	if recibidas.is_empty():
 		texto += " y no recibiste ninguna."
@@ -251,7 +261,7 @@ func _siguiente_turno() -> void:
 	if partida.turno == 0:
 		if partida.debe_robar():
 			fase = Fase.ROBAR
-			_agregar_mensaje("Tu turno: pulsa «Robar».")
+			_agregar_mensaje("Tu turno: toca «Robar».")
 			_sonidos.tocar("turno")
 			var cerca := Entrenador.cerca_de_ganar(mano, objetivo, partida.expuestas[0])
 			if cerca != "":
@@ -302,7 +312,7 @@ func robar() -> void:
 	ids_nuevas.clear()
 	ids_nuevas.append(nueva.id)
 	fase = Fase.DESCARTAR
-	_mostrar_mensaje("Has robado: %s. Toca la ficha que quieras descartar y pulsa «Descartar»." % nueva.nombre())
+	_mostrar_mensaje("Robaste: %s. Toca la ficha que quieras descartar y luego «Descartar»." % nueva.nombre())
 	_sonidos.tocar("robar")
 	if not partida.cambios_de_comodin(0).is_empty():
 		_agregar_mensaje("¡Puedes cambiar una ficha por un comodín expuesto!")
@@ -332,7 +342,7 @@ func descartar() -> void:
 	# En los niveles con entrenador, tirar un comodín pide confirmación.
 	if ficha.es_comodin() and _nivel.get("entrenador", false) and not tutorial_activo and _confirmar_comodin != ficha.id:
 		_confirmar_comodin = ficha.id
-		_mostrar_mensaje("¿Seguro que quieres tirar un comodín? Pulsa «Descartar» otra vez para confirmarlo.")
+		_mostrar_mensaje("¿Seguro que quieres tirar un comodín? Toca «Descartar» otra vez para confirmarlo.")
 		_sonidos.tocar("aviso")
 		return
 	_confirmar_comodin = -1
@@ -396,7 +406,7 @@ func _tras_descarte() -> void:
 	_canto_pendiente = {"rivales": cantos_rivales, "mio": mio}
 	fase = Fase.DECIDIR_CANTO
 	if mio["mahjong"] and _nivel["cantos"] != "todos":
-		_agregar_mensaje("¡Con esa ficha completas tu mano! Pulsa «¡Mahjong!».")
+		_agregar_mensaje("¡Con esa ficha completas tu mano! Toca «¡Mahjong!».")
 	elif _nivel["cantos"] == "explicados":
 		_agregar_mensaje("¡Puedes cantarla! Formarías un %s de %s y a «%s» le faltarían %d en vez de %d." % [
 			Partida.NOMBRE_GRUPO[ev["cant"]], ficha.nombre(), ev["mano"], ev["faltan_despues"], ev["faltan_antes"]])
@@ -479,14 +489,14 @@ func _terminar() -> void:
 	else:
 		_sonidos.tocar("aviso")
 	if partida.ganador == -1:
-		_mostrar_mensaje("Se acabó el muro y nadie hizo Mahjong: ¡empate! Pulsa «Nueva partida».")
+		_mostrar_mensaje("Se acabó el muro y nadie hizo Mahjong: ¡empate! Toca «Nueva partida».")
 		mostrar_leccion("muro_vacio")
 	elif partida.ganador == 0:
 		_mostrar_mensaje("¡MAHJONG! Completaste «%s» (%d puntos)." % [
 			partida.mano_ganadora["nombre"], partida.mano_ganadora["puntos"]])
 		mostrar_leccion("mahjong")
 	else:
-		_mostrar_mensaje("%s hizo ¡MAHJONG! con «%s». Mira su mano a la izquierda. Pulsa «Nueva partida»." % [
+		_mostrar_mensaje("%s hizo ¡MAHJONG! con «%s». Mira su mano a la izquierda. Toca «Nueva partida»." % [
 			partida.nombre(partida.ganador), partida.mano_ganadora["nombre"]])
 		mostrar_leccion("mahjong")
 	if _nivel["marcador"]:
@@ -527,7 +537,7 @@ func sugerir() -> void:
 	for f in sugeridas:
 		seleccion.append(f.id)
 	var boton := "«Descartar»" if fase == Fase.DESCARTAR else "«Pasar»"
-	_mostrar_mensaje("%s Pulsa %s si estás de acuerdo." % [
+	_mostrar_mensaje("%s Toca %s si estás de acuerdo." % [
 		Asesor.explicar(sugeridas, mano, manos_tarjeta, partida.expuestas[0]), boton])
 	_refrescar_mano()
 
@@ -712,7 +722,7 @@ func _tutorial_espera(accion: String) -> bool:
 		return true
 	_burbuja_aviso.text = "Casi: haz lo que brilla en amarillo."
 	if _paso_actual()["espera"] == "continuar":
-		_burbuja_aviso.text = "Pulsa «Continuar» en este mensaje."
+		_burbuja_aviso.text = "Toca «Continuar» en este mensaje."
 	elif _paso_actual()["espera"] == "rivales":
 		_burbuja_aviso.text = "Espera un momento: están jugando los demás."
 	_burbuja_aviso.visible = true
@@ -899,7 +909,7 @@ func _notification(what: int) -> void:
 
 
 func _unhandled_input(evento: InputEvent) -> void:
-	# En el ordenador, la tecla Esc hace lo mismo que «atrás».
+	# En la computadora, la tecla Esc hace lo mismo que «atrás».
 	if evento.is_action_pressed("ui_cancel"):
 		_al_pulsar_atras()
 		get_viewport().set_input_as_handled()
@@ -1127,7 +1137,7 @@ func _crear_ventana_marcador() -> void:
 	botones.alignment = BoxContainer.ALIGNMENT_END
 	botones.add_theme_constant_override("separation", 12)
 	caja.add_child(botones)
-	botones.add_child(_boton("Poner a cero", reiniciar_marcador, 170))
+	botones.add_child(_boton("Reiniciar", reiniciar_marcador, 170))
 	botones.add_child(_boton("¿Cómo se cuenta?", func(): mostrar_leccion("puntuacion", true), 200))
 	botones.add_child(_boton("Cerrar", func(): _capa_marcador.visible = false, 130))
 
@@ -1137,6 +1147,7 @@ func _crear_ventana_marcador() -> void:
 # =============================================================================
 
 func _al_tocar_ficha(fv: FichaVisual) -> void:
+	_mostrar_lupa(fv)
 	var id := fv.ficha.id
 	if tutorial_activo:
 		var paso := _paso_actual()
@@ -1151,7 +1162,7 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 		if id in seleccion:
 			seleccion.erase(id)
 		elif seleccion.size() >= Charleston.FICHAS_POR_PASE:
-			_mostrar_mensaje("Ya elegiste 3 fichas. Toca una elegida para quitarla, o pulsa «Pasar».")
+			_mostrar_mensaje("Ya elegiste 3 fichas. Toca una elegida para quitarla, o toca «Pasar».")
 			return
 		else:
 			seleccion.append(id)
@@ -1184,6 +1195,8 @@ func _al_tocar_ficha(fv: FichaVisual) -> void:
 
 func _al_soltar_ficha(origen: FichaVisual, destino: FichaVisual) -> void:
 	# Mueve la ficha arrastrada al lugar de la ficha sobre la que se soltó.
+	if not origen.ficha in mano or not destino.ficha in mano:
+		return
 	var indice_destino := mano.find(destino.ficha)
 	mano.erase(origen.ficha)
 	mano.insert(indice_destino, origen.ficha)
@@ -1199,7 +1212,8 @@ func _al_pulsar_ordenar() -> void:
 
 ## Abre la «Tarjeta 2026» completa.
 func _abrir_tarjeta() -> void:
-	_ventana_tarjeta.abrir(_analisis_lista, objetivo["nombre"], _nivel["consejos"])
+	var ayudas: bool = _nivel["consejos"] or _nivel.get("entrenador", false)
+	_ventana_tarjeta.abrir(mano, partida.expuestas[0], objetivo["nombre"], ayudas)
 
 
 func _al_elegir_mano_en_tarjeta(nombre: String) -> void:
@@ -1301,7 +1315,7 @@ func _refrescar_tarjeta() -> void:
 
 	var texto_objetivo := "Objetivo: %s\n%s" % [objetivo["nombre"], objetivo["explicacion"]]
 	if not objetivo_elegido and not _nivel["consejos"]:
-		texto_objetivo = "Todavía no has elegido objetivo: toca una mano de la tarjeta."
+		texto_objetivo = "Todavía no eliges objetivo: toca una mano de la tarjeta."
 		_lista_tarjeta.deselect_all()
 	if _nivel["consejos"]:
 		texto_objetivo += "\n\nConsejo: " + objetivo["consejo"]
@@ -1338,6 +1352,7 @@ func _refrescar_mano() -> void:
 
 	for ficha in mano:
 		var fv := FichaVisual.new(ficha)
+		fv.custom_minimum_size = TAMANO_MANO
 		fv.mostrar_consejo = consejos
 		fv.util = ficha.id in ids_utiles
 		fv.nueva = ficha.id in ids_nuevas
@@ -1385,34 +1400,33 @@ func _refrescar_mano() -> void:
 ## El panel de la izquierda muestra los pasos del Charleston o, al jugar, los descartes.
 func _refrescar_panel_izquierdo() -> void:
 	var en_charleston := fase == Fase.CHARLESTON
+	_mesa.visible = not tutorial_activo
 	_zona_charleston.visible = en_charleston and not tutorial_activo
 	_zona_descartes.visible = not en_charleston and not tutorial_activo
 	_expuestas_rivales.visible = not en_charleston and not tutorial_activo
 	if tutorial_activo:
 		_titulo_izquierda.text = ""
 		return
+	_mesa.visible = true
+	_mesa.actualizar(partida, charleston.direccion_actual() if _pasando_fichas() else 0, not en_charleston)
 	if en_charleston:
 		_titulo_izquierda.text = "Charleston: intercambio de fichas"
 		_texto_charleston.text = _texto_pasos_charleston()
 		return
 
-	# Los atriles de los rivales: sus fichas boca abajo (con el reverso del juego),
-	# cuántas les quedan y sus grupos expuestos. El que tiene el turno se resalta.
+	# Los grupos expuestos de los rivales (sus fichas boca abajo se ven en la mesa).
 	for hijo in _expuestas_rivales.get_children():
 		hijo.queue_free()
 	for j in range(1, 4):
-		var fila := HBoxContainer.new()
-		fila.add_theme_constant_override("separation", 8)
+		if partida.expuestas[j].is_empty():
+			continue
+		var fila := HFlowContainer.new()
+		fila.add_theme_constant_override("h_separation", 6)
 		var nombre := Label.new()
-		nombre.text = partida.nombre(j)
-		nombre.custom_minimum_size.x = 150
-		if partida.turno == j and fase != Fase.FIN:
-			nombre.text = "▶ " + nombre.text
-			nombre.add_theme_color_override("font_color", Color("ffe082"))
+		nombre.text = "%s:" % partida.nombre(j)
 		fila.add_child(nombre)
-		fila.add_child(_atril(partida.manos[j].size()))
 		for g in partida.expuestas[j]:
-			fila.add_child(_grupo_pequeno(g))
+			fila.add_child(_grupo_pequeno(g, 0.45))
 		_expuestas_rivales.add_child(fila)
 
 	for hijo in _fichas_descartadas.get_children():
@@ -1473,7 +1487,9 @@ func _ficha_pequena(ficha: Ficha, etiqueta: String) -> Control:
 	var escala := 0.7
 	var fv := FichaVisual.new(ficha)
 	fv.scale = Vector2(escala, escala)
-	fv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# No se puede arrastrar, pero al tocarla se ve en grande.
+	fv.arrastrable = false
+	fv.tocada.connect(_mostrar_lupa)
 	var hueco := Control.new()
 	hueco.custom_minimum_size = FichaVisual.TAMANO * escala + Vector2(0, 18)
 	hueco.add_child(fv)
@@ -1499,8 +1515,7 @@ func _ficha_pequena_sin_etiqueta(ficha: Ficha, escala: float) -> Control:
 
 
 ## Un grupo expuesto: sus fichas juntas y en pequeño.
-func _grupo_pequeno(grupo: Dictionary) -> Control:
-	var escala := 0.6
+func _grupo_pequeno(grupo: Dictionary, escala: float = 0.6) -> Control:
 	var caja := HBoxContainer.new()
 	caja.add_theme_constant_override("separation", 0)
 	for ficha in grupo["fichas"]:
@@ -1546,7 +1561,7 @@ func _texto_pasos_charleston() -> String:
 	lineas.append("")
 	lineas.append("Truco: elige tu mano objetivo en la tarjeta y pasa lo que no encaje%s." % (
 		" (lo apagado)" if _nivel["consejos"] else ""))
-	lineas.append("¿Dudas? Pulsa «¿Por qué?» para ver la explicación de este paso.")
+	lineas.append("¿Dudas? Toca «¿Por qué?» para ver la explicación de este paso.")
 	return "\n".join(lineas)
 
 
@@ -1570,6 +1585,77 @@ func _mostrar_mensaje(texto: String) -> void:
 ## Añade texto al mensaje actual (para no borrar lo que acaba de pasar).
 func _agregar_mensaje(texto: String) -> void:
 	_mensaje.text = (_mensaje.text + " " + texto).strip_edges()
+
+
+# =============================================================================
+#  LUPA: AL TOCAR UNA FICHA SE VE EN GRANDE
+# =============================================================================
+
+const ESCALA_LUPA := 2.0
+const SEGUNDOS_LUPA := 1.6
+
+## Enseña la ficha tocada en grande, justo encima de ella, durante un momento.
+## No tapa los toques: puedes seguir jugando mientras se ve.
+func _mostrar_lupa(fv: FichaVisual) -> void:
+	if fv.boca_abajo:
+		return
+	for hijo in _lupa_hueco.get_children():
+		hijo.queue_free()
+	var grande := FichaVisual.new(fv.ficha)
+	grande.custom_minimum_size = FichaVisual.TAMANO * ESCALA_LUPA
+	grande.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lupa_hueco.add_child(grande)
+	_lupa_nombre.text = fv.ficha.nombre()
+	_lupa.reset_size()
+	var tamano := _lupa.get_combined_minimum_size()
+	var rect := fv.get_global_rect()
+	var pantalla := get_viewport_rect().size
+	var pos := Vector2(rect.get_center().x - tamano.x / 2, rect.position.y - tamano.y - 8)
+	pos.x = clampf(pos.x, 8, pantalla.x - tamano.x - 8)
+	if pos.y < 8:
+		pos.y = rect.end.y + 8  # si no cabe encima (descartes de arriba), debajo
+	_lupa.position = pos
+	_lupa.pivot_offset = Vector2(tamano.x / 2, tamano.y)
+	_lupa.visible = true
+	if _lupa_tween:
+		_lupa_tween.kill()
+	var animar: bool = _menu.ajustes["animaciones"]
+	_lupa.modulate.a = 1.0
+	_lupa.scale = Vector2(0.6, 0.6) if animar else Vector2.ONE
+	_lupa_tween = create_tween()
+	if animar:
+		_lupa_tween.tween_property(_lupa, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_lupa_tween.tween_interval(SEGUNDOS_LUPA)
+	_lupa_tween.tween_property(_lupa, "modulate:a", 0.0, 0.25)
+	_lupa_tween.tween_callback(func(): _lupa.visible = false)
+
+
+func _crear_lupa() -> void:
+	_lupa = PanelContainer.new()
+	var estilo := StyleBoxFlat.new()
+	estilo.bg_color = Color("fbf3e4")
+	estilo.border_color = Color("c2185b")
+	estilo.set_border_width_all(3)
+	estilo.set_corner_radius_all(14)
+	estilo.set_content_margin_all(10)
+	estilo.shadow_color = Color(0, 0, 0, 0.4)
+	estilo.shadow_size = 10
+	_lupa.add_theme_stylebox_override("panel", estilo)
+	_lupa.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lupa.visible = false
+	add_child(_lupa)
+	var caja := VBoxContainer.new()
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_theme_constant_override("separation", 6)
+	_lupa.add_child(caja)
+	_lupa_hueco = CenterContainer.new()
+	_lupa_hueco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_child(_lupa_hueco)
+	_lupa_nombre = Label.new()
+	_lupa_nombre.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lupa_nombre.add_theme_font_size_override("font_size", 22)
+	_lupa_nombre.add_theme_color_override("font_color", Color("3b2a1a"))
+	caja.add_child(_lupa_nombre)
 
 
 # =============================================================================
@@ -1633,19 +1719,33 @@ func _crear_interfaz() -> void:
 	_titulo_izquierda = caja_izquierda.get_child(0) as Label
 	# Los pasos del Charleston van en un área con desplazamiento para que, si falta sitio
 	# (letra grande, pase a ciegas), no empujen la mano fuera de la pantalla.
+	# A la izquierda, la mesa (dónde está cada jugador); a su lado, los pasos del
+	# Charleston o, al jugar, los grupos expuestos de los rivales y los descartes.
+	var fila_mesa := HBoxContainer.new()
+	fila_mesa.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	fila_mesa.add_theme_constant_override("separation", 12)
+	caja_izquierda.add_child(fila_mesa)
+	_mesa = Mesa.new()
+	fila_mesa.add_child(_mesa)
+	var caja_lado := VBoxContainer.new()
+	caja_lado.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila_mesa.add_child(caja_lado)
+	# Los pasos del Charleston van en un área con desplazamiento para que, si falta sitio
+	# (letra grande, pase a ciegas), no empujen la mano fuera de la pantalla.
 	_zona_charleston = ScrollContainer.new()
 	_zona_charleston.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_zona_charleston.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	caja_izquierda.add_child(_zona_charleston)
+	caja_lado.add_child(_zona_charleston)
 	_texto_charleston = Label.new()
 	_texto_charleston.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_texto_charleston.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zona_charleston.add_child(_texto_charleston)
 	_expuestas_rivales = VBoxContainer.new()
-	caja_izquierda.add_child(_expuestas_rivales)
+	caja_lado.add_child(_expuestas_rivales)
 	_zona_descartes = ScrollContainer.new()
 	_zona_descartes.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	caja_izquierda.add_child(_zona_descartes)
+	_zona_descartes.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	caja_lado.add_child(_zona_descartes)
 	_fichas_descartadas = HFlowContainer.new()
 	_fichas_descartadas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_zona_descartes.add_child(_fichas_descartadas)
@@ -1688,7 +1788,7 @@ func _crear_interfaz() -> void:
 	_fila_mano = HBoxContainer.new()
 	_fila_mano.alignment = BoxContainer.ALIGNMENT_CENTER
 	_fila_mano.add_theme_constant_override("separation", 4)
-	_fila_mano.custom_minimum_size.y = FichaVisual.TAMANO.y
+	_fila_mano.custom_minimum_size.y = TAMANO_MANO.y
 	_fila_expuestas = HBoxContainer.new()
 	_fila_expuestas.alignment = BoxContainer.ALIGNMENT_CENTER
 	_fila_expuestas.visible = false
@@ -1725,12 +1825,14 @@ func _crear_interfaz() -> void:
 	_timer_rivales.timeout.connect(_al_terminar_timer_rivales)
 	add_child(_timer_rivales)
 
+	# El globo del tutorial y la lupa van debajo de las ventanas (lecciones, tarjeta...).
+	_crear_burbuja()
+	_crear_lupa()
 	_crear_ventana_leccion()
 	_crear_ventana_reglas()
 	_ventana_tarjeta = VentanaTarjeta.new()
 	_ventana_tarjeta.mano_elegida.connect(_al_elegir_mano_en_tarjeta)
 	add_child(_ventana_tarjeta)
-	_crear_burbuja()
 	_crear_ventana_marcador()
 	_crear_ventana_niveles()
 	_celebracion = Celebracion.new()

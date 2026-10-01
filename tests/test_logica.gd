@@ -29,6 +29,8 @@ func _init() -> void:
 	probar_pase_a_ciegas()
 	probar_fichas_que_faltan()
 	probar_entrenador()
+	probar_ejemplo_con_tus_fichas()
+	probar_espanol_de_mexico()
 	probar_lecciones()
 
 	print("")
@@ -665,3 +667,68 @@ func probar_entrenador() -> void:
 	var lejos := mano("Los cuatro vientos")
 	comprobar(Entrenador.mejor_objetivo(m, lejos, Tarjeta.manos(), []).contains("Pares del 2 al 8"),
 		"sugiere cambiar a una mano más cercana")
+
+
+func probar_ejemplo_con_tus_fichas() -> void:
+	print("Tarjeta con tus fichas:")
+	var m := fichas("flor flor car2 car2 car2 car4 car4 comodin car6 car6 car6 car8 vN")
+	var grupos := Tarjeta.ejemplo_con_tus_fichas(mano("Pares del 2 al 8"), m)
+	var tienes := 0
+	var palos_bien := true
+	for g in grupos:
+		for f in g:
+			if f["tienes"]:
+				tienes += 1
+			if f["ficha"].tipo == Ficha.Tipo.NUMERO and f["ficha"].palo != "car":
+				palos_bien = false
+	comprobar(palos_bien, "dibuja la mano en el palo de tus fichas (Picado)")
+	comprobar(tienes == 14 - Validador.analizar(m, mano("Pares del 2 al 8"))["faltan"], "marca tantas fichas como tienes (%d)" % tienes)
+	comprobar(grupos[2][2]["ficha"].es_comodin() and grupos[2][2]["tienes"], "tu comodín ocupa un hueco del pung de 4")
+
+	# Siempre: fichas marcadas = 14 - faltan, con manos al azar y grupos expuestos.
+	var bien := true
+	for semilla in range(1, 8):
+		var mazo := Mazo.new(semilla)
+		mazo.barajar()
+		var mano_azar := mazo.repartir(13)
+		for mt in Tarjeta.manos():
+			var a := Validador.analizar(mano_azar, mt)
+			if a["faltan"] == Validador.IMPOSIBLE:
+				continue
+			var marcadas := 0
+			for g in Tarjeta.ejemplo_con_tus_fichas(mt, mano_azar):
+				for f in g:
+					marcadas += 1 if f["tienes"] else 0
+			if marcadas != 14 - a["faltan"]:
+				bien = false
+	comprobar(bien, "con cualquier mano, las fichas marcadas son 14 menos las que faltan")
+	var expuestas := [grupo("car2 car2 car2")]
+	var resto := fichas("flor flor car4 car4 car4 car6 car6 car8")
+	var con_expuestas := 0
+	for g in Tarjeta.ejemplo_con_tus_fichas(mano("Pares del 2 al 8"), resto, expuestas):
+		for f in g:
+			con_expuestas += 1 if f["tienes"] else 0
+	comprobar(con_expuestas == 11, "cuenta tus grupos expuestos como fichas que ya tienes (%d)" % con_expuestas)
+
+
+## Los textos del juego están en español de México (sin «vosotros», «coger» ni «pulsa»).
+func probar_espanol_de_mexico() -> void:
+	print("Español de México:")
+	var textos: Array[String] = []
+	for clave in Lecciones.ORDEN:
+		var l := Lecciones.obtener(clave)
+		textos.append_array([l["titulo"], l["texto"], l["mesa"]])
+	for paso in Tutorial.PASOS:
+		textos.append(paso["texto"])
+	for n in Niveles.ORDEN:
+		textos.append(Niveles.obtener(n)["descripcion"])
+	for m in Tarjeta.manos():
+		textos.append_array([m["explicacion"], m["consejo"]])
+	var raras: Array[String] = []
+	var regex := RegEx.new()
+	regex.compile("(?i)\\b(vosotros|vuestr[oa]s?|coger|coge|cojas?|pulsa|pulsar|ordenador|móvil|vale la|a por)\\b|áis\\b|éis\\b")
+	for t in textos:
+		var r := regex.search(t)
+		if r:
+			raras.append(r.get_string())
+	comprobar(raras.is_empty(), "sin palabras de España en los textos: %s" % str(raras))

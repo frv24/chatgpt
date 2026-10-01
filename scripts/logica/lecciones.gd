@@ -24,7 +24,7 @@ const TODAS := {
 	"preparar_mesa": {
 		"titulo": "Antes de empezar: preparar la mesa",
 		"texto": "El Mahjong americano se juega entre 4 personas con 152 fichas. Se ponen todas boca abajo y se mezclan. Después cada jugador construye delante de sí un muro de 19 columnas de 2 fichas (38 fichas cada uno).",
-		"mesa": "El Este tira los dados para saber por dónde se abre el muro. Luego cada jugador coge 4 fichas, tres veces seguidas (12), y después 1 más (13). El Este coge una ficha extra: empieza con 14. En esta app el reparto se hace solo.",
+		"mesa": "El Este tira los dados para saber por dónde se abre el muro. Luego cada jugador toma 4 fichas, tres veces seguidas (12), y después 1 más (13). El Este toma una ficha extra: empieza con 14. En esta app el reparto se hace solo.",
 	},
 	"las_fichas": {
 		"titulo": "Conoce las fichas",
@@ -39,7 +39,7 @@ const TODAS := {
 	"charleston": {
 		"titulo": "¿Por qué empezamos con el Charleston?",
 		"texto": "Las fichas se reparten al azar, así que casi nadie empieza con una buena mano. El Charleston es un intercambio de fichas ANTES de jugar: cada uno se deshace de lo que no le sirve y recibe fichas que quizá sí le sirvan. Solo existe en el Mahjong americano.",
-		"mesa": "Antes de pasar, mira la tarjeta y piensa a qué mano vas a jugar: pasa lo que no encaje. Todos pasan a la vez: pon tus 3 fichas boca abajo junto a tu atril, del lado de quien las recibe, y no cojas las que te pasan hasta haber dejado las tuyas.",
+		"mesa": "Antes de pasar, mira la tarjeta y piensa a qué mano vas a jugar: pasa lo que no encaje. Todos pasan a la vez: pon tus 3 fichas boca abajo junto a tu atril, del lado de quien las recibe, y no tomes las que te pasan hasta haber dejado las tuyas.",
 	},
 	"charleston_direcciones": {
 		"titulo": "¿Hacia dónde se pasa y cuántas veces?",
@@ -54,27 +54,27 @@ const TODAS := {
 	"ultimo_pase": {
 		"titulo": "El último pase y el \"pase a ciegas\"",
 		"texto": "El tercer pase del primer Charleston (a la izquierda) permite el \"pase a ciegas\". Si no quieres romper tu mano, puedes pasar 1, 2 o 3 de las fichas que te acaban de dar SIN MIRARLAS, y completar hasta 3 con fichas tuyas. Lo mismo vale en el último pase del segundo Charleston (a la derecha).",
-		"mesa": "Recoge las fichas que te pasan sin darles la vuelta y pásalas directamente. En esta app, las fichas que recibes en el pase de enfrente llegan boca abajo: tócalas para pasarlas a ciegas o pulsa «Mirar fichas» para recogerlas.",
+		"mesa": "Recoge las fichas que te pasan sin darles la vuelta y pásalas directamente. En esta app, las fichas que recibes en el pase de enfrente llegan boca abajo: tócalas para pasarlas a ciegas o toca «Mirar fichas» para recogerlas.",
 	},
 	"segundo_charleston": {
 		"titulo": "¿Hacemos el segundo Charleston?",
 		"texto": "El segundo Charleston es opcional, y basta con que UN jugador no quiera para que no se haga. Conviene hacerlo si tu mano aún está lejos de todas las de la tarjeta. Si ya estás cerca, puedes pararlo para no arriesgar.",
-		"mesa": "Al acabar el primer Charleston se pregunta en voz alta: \"¿Seguimos?\". Si alguien dice que no, se pasa directamente a la cortesía.",
+		"mesa": "Al terminar el primer Charleston se pregunta en voz alta: \"¿Seguimos?\". Si alguien dice que no, se pasa directamente a la cortesía.",
 	},
 	"cortesia": {
 		"titulo": "El pase de cortesía",
 		"texto": "Es el último intercambio y solo se hace con el jugador de ENFRENTE, de 0 a 3 fichas. Es opcional.",
-		"mesa": "Os ponéis de acuerdo en cuántas pasar. Si tú quieres pasar 3 y tu compañero solo 1, se pasa 1: manda el número más pequeño. En esta app, el rival de enfrente te pasa tantas como le pases tú.",
+		"mesa": "Se ponen de acuerdo en cuántas pasar. Si tú quieres pasar 3 y tu compañero solo 1, se pasa 1: manda el número más pequeño. En esta app, el rival de enfrente te pasa tantas como le pases tú.",
 	},
 	"turnos": {
 		"titulo": "Empieza el juego: los turnos",
 		"texto": "El Este empieza: como tiene 14 fichas, descarta una sin robar. Después el turno pasa a la DERECHA. En tu turno: 1) robas una ficha del muro; 2) si tus 14 fichas forman una mano de la tarjeta, ¡Mahjong!; 3) si no, descartas una y vuelves a 13.",
-		"mesa": "Al descartar, di en voz alta el nombre de la ficha (\"¡5 de Sol!\") y déjala boca arriba en el centro de la mesa. Así todos saben qué se ha tirado.",
+		"mesa": "Al descartar, di en voz alta el nombre de la ficha (\"¡5 de Sol!\") y déjala boca arriba en el centro de la mesa. Así todos saben qué se tiró.",
 	},
 	"descartes_rivales": {
 		"titulo": "Fíjate en los descartes de los demás",
 		"texto": "Los descartes dan pistas. Si alguien tira muchos Nopales, seguramente no juega a Nopal. Y si un rival no tira nunca dragones (Chile, Maguey, Blanco), quizá los esté juntando: ten cuidado al descartarlos tú.",
-		"mesa": "Pronto podrás \"cantar\" un descarte: coger la ficha que otro acaba de tirar para completar un grupo tuyo.",
+		"mesa": "Pronto podrás \"cantar\" un descarte: tomar la ficha que otro acaba de tirar para completar un grupo tuyo.",
 	},
 	"cantar": {
 		"titulo": "Cantar un descarte",
@@ -94,11 +94,11 @@ const TODAS := {
 	"cambiar_comodin": {
 		"titulo": "Cambiar un comodín expuesto",
 		"texto": "Si un grupo expuesto (tuyo o de otro jugador) tiene un comodín y tú tienes la ficha real, en tu turno puedes cambiarla por el comodín. Te llevas un comodín, ¡que vale mucho más!",
-		"mesa": "Hazlo en tu turno, después de robar y antes de descartar: pon tu ficha en el grupo y coge el comodín. Por eso conviene exponer grupos con fichas reales y guardar los comodines en la mano.",
+		"mesa": "Hazlo en tu turno, después de robar y antes de descartar: pon tu ficha en el grupo y toma el comodín. Por eso conviene exponer grupos con fichas reales y guardar los comodines en la mano.",
 	},
 	"mahjong": {
 		"titulo": "¡Mahjong!",
-		"texto": "Cuando tus 14 fichas forman exactamente una mano de la tarjeta, has ganado: dices \"¡Mahjong!\" y enseñas tu mano.",
+		"texto": "Cuando tus 14 fichas forman exactamente una mano de la tarjeta, ganaste: dices \"¡Mahjong!\" y muestras tu mano.",
 		"mesa": "Los demás comprueban tu mano con la tarjeta. Si cantas Mahjong por error y tu mano no es válida, quedas \"muerto\": ya no puedes ganar esa partida. ¡Revisa bien antes de cantarlo!",
 	},
 	"puntuacion": {
@@ -113,7 +113,7 @@ const TODAS := {
 	},
 	"muro_vacio": {
 		"titulo": "Partida sin ganador",
-		"texto": "Si se acaban las fichas del muro y nadie ha hecho Mahjong, la partida termina en empate (\"partida muerta\").",
+		"texto": "Si se acaban las fichas del muro y nadie hizo Mahjong, la partida termina en empate (\"partida muerta\").",
 		"mesa": "Se vuelven a mezclar todas las fichas y se juega otra partida.",
 	},
 }

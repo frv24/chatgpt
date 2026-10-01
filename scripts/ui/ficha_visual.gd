@@ -59,6 +59,8 @@ var _etiqueta_pequena := Label.new()
 var _imagen: TextureRect = null
 ## Si es true, la ficha se ve boca abajo (con el reverso): no se sabe cuál es.
 var boca_abajo := false
+## Si es false, no se puede arrastrar (por ejemplo, los descartes).
+var arrastrable := true
 
 
 ## Devuelve la imagen del diseño de una ficha, o null si todavía no hay diseño.
@@ -173,20 +175,21 @@ func _gui_input(evento: InputEvent) -> void:
 # --- Arrastrar y soltar (lo gestiona Godot automáticamente) --------------------
 
 func _get_drag_data(_posicion: Vector2) -> Variant:
-	if boca_abajo:
+	if boca_abajo or not arrastrable:
 		return null
 	# La "vista previa" es una copia de la ficha que sigue al dedo.
 	var vista := FichaVisual.new(ficha)
+	vista.custom_minimum_size = custom_minimum_size
 	vista.modulate.a = 0.8
 	var contenedor := Control.new()
 	contenedor.add_child(vista)
-	vista.position = -TAMANO / 2
+	vista.position = -custom_minimum_size / 2
 	set_drag_preview(contenedor)
 	return self
 
 
 func _can_drop_data(_posicion: Vector2, datos: Variant) -> bool:
-	return datos is FichaVisual and datos != self
+	return arrastrable and datos is FichaVisual and datos != self
 
 
 func _drop_data(_posicion: Vector2, datos: Variant) -> void:
@@ -214,7 +217,7 @@ func _poner_brillo(valor: float) -> void:
 ## Con `centrada` = false crece desde la esquina (para fichas ya encogidas en un hueco).
 func animar_entrada(escala_final: float = 1.0, centrada: bool = true) -> void:
 	if centrada:
-		pivot_offset = TAMANO / 2
+		pivot_offset = custom_minimum_size / 2
 	scale = Vector2.ONE * escala_final * 0.4
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector2.ONE * escala_final, 0.35) \

@@ -77,8 +77,16 @@ Hecho con [Godot 4](https://godotengine.org) para Android e iOS (y también PC y
   en `assets/sonidos/` (por ejemplo `mahjong.ogg`), se usa ese.
 - **Animaciones**: las fichas nuevas y los descartes aparecen con un pequeño salto, y el Mahjong
   se celebra con confeti de colores del papel picado.
-- **Atriles de los rivales** con tu reverso: cuántas fichas les quedan y a quién le toca (▶).
-- **Controles táctiles**: tocas una ficha para seleccionarla y la arrastras para reordenar tu mano.
+- **La mesa vista desde arriba**: tú abajo, Derecha, Enfrente e Izquierda en su lado, cada uno con
+  su viento (Este, Sur, Oeste, Norte) y su atril con tu reverso. En el Charleston, unas flechas
+  enseñan hacia dónde van las fichas (la tuya en amarillo) y se ven viajar al pasar; al jugar,
+  brilla quien tiene el turno y en el centro se ve el muro.
+- **Tarjeta para aprender** (Fácil, Normal e Intermedio): primero salen las manos a las que más te
+  acercas, dibujadas con tus fichas encendidas y las que te faltan apagadas («Tienes 9 de 14»).
+  El botón «Ver por secciones» la muestra como la tarjeta impresa.
+- **Controles táctiles**: fichas grandes en tu mano; al tocar una ficha (o un descarte) se ve en
+  grande un momento con su nombre; la arrastras para reordenar tu mano.
+- **Textos en español de México.**
 
 ## Cómo está organizado
 ```
@@ -100,6 +108,7 @@ scripts/ui/              Todo lo que se ve en pantalla
   ficha_visual.gd        Cómo se dibuja una ficha
   main.gd                La pantalla de juego
   ventana_tarjeta.gd     La ventana «Tarjeta 2026»
+  mesa.gd                La mesa vista desde arriba (asientos, vientos y flechas del Charleston)
   papel_picado.gd        El adorno de papel picado
   menu_principal.gd      La pantalla de inicio y los Ajustes
   sonidos.gd             Los sonidos (generados con código)

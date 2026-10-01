@@ -132,7 +132,7 @@ static func _crear_manos() -> Array[Dictionary]:
 		_mano("2026", "Triple 2026", "FF 2026 2026 2026", C, 50,
 			[flores(2)] + ano("A") + ano("B") + ano("C"),
 			"Dos flores y el año 2026 en fichas sueltas en los tres palos. Mano oculta.",
-			"Todo son sueltas: no admite comodines. Muy difícil, pero vale mucho."),
+			"Todas son sueltas: no admite comodines. Muy difícil, pero vale mucho."),
 
 		# ------------------------------------------------------------- 2468
 		_mano("2468", "Pares del 2 al 8", "FF 222 444 666 888", X, 25,
@@ -318,8 +318,10 @@ static func _crear_manos() -> Array[Dictionary]:
 ## Un ejemplo concreto de la mano (con los palos A = Nopal, B = Picado, C = Sol y X = 1),
 ## separado en grupos. Usa fichas reales y solo pone comodines donde hacen falta
 ## (por ejemplo, en un quint). Sirve para dibujar la tarjeta.
-static func ejemplo(mano: Dictionary) -> Array:
-	var variante: Dictionary = Validador.variantes(mano)[0]
+## Con `variante` se dibuja esa variante concreta (por ejemplo, la más cercana a tus fichas).
+static func ejemplo(mano: Dictionary, variante: Dictionary = {}) -> Array:
+	if variante.is_empty():
+		variante = Validador.variantes(mano)[0]
 	var usadas := {}
 	var id := 10000
 	var resultado := []
@@ -336,4 +338,58 @@ static func ejemplo(mano: Dictionary) -> Array:
 				grupo.append(Ficha.new(Ficha.Tipo.COMODIN, "", 0, id))
 			id += 1
 		resultado.append(grupo)
+	return resultado
+
+
+## Como `ejemplo`, pero con la variante más cercana a TUS fichas y marcando cuáles ya tienes.
+## Devuelve una lista de grupos; cada ficha es {"ficha": Ficha, "tienes": bool}.
+## Los huecos que cubren tus comodines se dibujan con un comodín.
+## Las fichas marcadas suman siempre 14 menos las que te faltan (como el validador).
+static func ejemplo_con_tus_fichas(mano: Dictionary, fichas: Array[Ficha], expuestas: Array = []) -> Array:
+	var analisis := Validador.analizar(fichas, mano, expuestas)
+	var variante: Dictionary = analisis.get("variante", {})
+	var resultado := []
+	for g in ejemplo(mano, variante):
+		var grupo := []
+		for f in g:
+			grupo.append({"ficha": f, "tienes": false})
+		resultado.append(grupo)
+	if analisis["faltan"] == Validador.IMPOSIBLE:
+		return resultado
+	var grupos: Array = variante["grupos"]
+
+	# 1. Tus grupos expuestos ya son tuyos.
+	var libres: Array[int] = []
+	for i in grupos.size():
+		libres.append(i)
+	for e in expuestas:
+		for i in libres:
+			if grupos[i]["clave"] == e["clave"] and grupos[i]["cant"] == e["fichas"].size():
+				for k in grupos[i]["cant"]:
+					resultado[i][k] = {"ficha": e["fichas"][k], "tienes": true}
+				libres.erase(i)
+				break
+
+	# 2. Tus fichas: primero en parejas y sueltas (no admiten comodín), luego en grupos de 3 o más.
+	var c := Validador.contar(fichas)
+	var conteo: Dictionary = c["conteo"].duplicate()
+	for grandes in [false, true]:
+		for i in libres:
+			var clave: String = grupos[i]["clave"]
+			if (grupos[i]["cant"] >= 3) != grandes:
+				continue
+			for k in grupos[i]["cant"]:
+				if conteo.get(clave, 0) > 0:
+					conteo[clave] -= 1
+					resultado[i][k] = {"ficha": Ficha.desde_clave(clave), "tienes": true}
+
+	# 3. Tus comodines, en los huecos de los grupos de 3 o más.
+	var comodines: int = c["comodines"]
+	for i in libres:
+		if grupos[i]["cant"] < 3:
+			continue
+		for k in grupos[i]["cant"]:
+			if comodines > 0 and not resultado[i][k]["tienes"]:
+				comodines -= 1
+				resultado[i][k] = {"ficha": Ficha.desde_clave("comodin"), "tienes": true}
 	return resultado
