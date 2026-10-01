@@ -9,7 +9,7 @@ consúltalo con un profesional.*
 Esta política explica qué información usa la app **Mahjong en Español**
 (`com.mahjongenespanol`), publicada por **Todo Que Ver Games** (Torreón, Coahuila, México).
 
-## Qué información recogemos
+## Qué información recopilamos
 **Ninguna.** La app no pide registro, no usa cuentas, no tiene anuncios, no incluye
 herramientas de análisis y no se conecta a internet.
 
@@ -23,7 +23,7 @@ Para que no pierdas tu progreso, la app guarda **solo en tu teléfono**:
 Estos datos no salen de tu dispositivo ni se envían a nadie. Se borran al desinstalar la app.
 
 ## Niños
-La app es apta para todas las edades y no recoge datos de nadie, tampoco de niños.
+La app es apta para todas las edades y no recopila datos de nadie, tampoco de niños.
 
 ## Cambios en esta política
 Si en el futuro la app cambia (por ejemplo, si se añaden partidas en línea), actualizaremos

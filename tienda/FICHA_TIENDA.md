@@ -84,5 +84,5 @@ captura y la descripción ampliada lo dicen claramente.
 - [ ] Política de privacidad publicada en una web (borrador en `tienda/politica_privacidad.md`)
 - [ ] Cuestionario de clasificación de contenido respondido
 - [ ] Público objetivo y contenido: si eliges edades que incluyen niños, se aplican las reglas de la política de familias de Google
-- [ ] Sección «Seguridad de los datos»: la app no recoge ni comparte datos
+- [ ] Sección «Seguridad de los datos»: la app no recopila ni comparte datos
 - [ ] Prueba cerrada con probadores (la cantidad y los días que pida Google Play Console en ese momento)
