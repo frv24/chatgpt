@@ -9,7 +9,7 @@ Todos los textos están comprobados con los límites de caracteres de cada tiend
 | Nombre en el teléfono | Mahjong en Español |
 | Versión | 1.0.0 (código de versión 1) |
 | Categoría | Juegos → Juegos de mesa |
-| Ícono 512 × 512 | `assets/icono/icono_512.png` |
+| Ícono 512 × 512 | `assets/icono/icono_512.png` (cuadrado a propósito: Google Play redondea las esquinas solo) |
 | Gráfico destacado 1024 × 500 | `tienda/grafico_destacado_1024x500.png` |
 | Capturas (1280 × 720) | `tienda/capturas/` (6 imágenes) |
 
