@@ -115,7 +115,7 @@ scripts/ui/              Todo lo que se ve en pantalla
   sonidos.gd             Los sonidos (generados con código)
   celebracion.gd         El confeti y el letrero de ¡Mahjong!
 tests/test_logica.gd     Pruebas automáticas de las reglas
-herramientas/            Genera el ícono redondeado y la pantalla de carga (no va en la app)
+herramientas/            Genera el ícono, la pantalla de carga y las capturas de la tienda (no va en la app)
 ```
 
 La lógica está separada de los gráficos a propósito. Así puedes cambiar el aspecto

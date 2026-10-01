@@ -11,7 +11,7 @@ Todos los textos están comprobados con los límites de caracteres de cada tiend
 | Categoría | Juegos → Juegos de mesa |
 | Ícono 512 × 512 | `assets/icono/icono_512.png` (cuadrado a propósito: Google Play redondea las esquinas solo) |
 | Gráfico destacado 1024 × 500 | `tienda/grafico_destacado_1024x500.png` |
-| Capturas (1280 × 720) | `tienda/capturas/` (6 imágenes) |
+| Capturas (1920 × 1080, horizontales) | `tienda/capturas/` (6 imágenes con marco y frase; se rehacen con `herramientas/capturas_tienda.gd`) |
 
 ## Google Play
 **Nombre de la app** (18 de 30 caracteres)

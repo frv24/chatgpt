@@ -192,7 +192,7 @@ func _dibujar_asiento(j: int, c: Vector2) -> void:
 		_texto_doble(fuente, nombre + " · ", viento, pos, 15, color_nombre, color_viento)
 	else:
 		# A los lados: dos líneas, por encima de las flechas.
-		var pos := c + Vector2(v.x * 66, -34)
+		var pos := c + Vector2(v.x * 66, -46)
 		_texto(fuente, nombre, pos, 14, color_nombre)
 		_texto(fuente, viento, pos + Vector2(0, 16), 14, color_viento)
 
