@@ -72,6 +72,18 @@ func _ready() -> void:
 	fila.add_child(_boton_pequeno("Reglas", func(): elegido.emit("reglas")))
 	fila.add_child(_boton_pequeno("Ajustes", abrir_ajustes))
 
+	# La versión, abajo a la derecha: así se sabe qué versión tiene instalada cada quien.
+	var version := Label.new()
+	version.text = "Versión %s" % ProjectSettings.get_setting("application/config/version", "")
+	version.add_theme_font_size_override("font_size", 16)
+	version.add_theme_color_override("font_color", CAFE)
+	version.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	version.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	version.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	version.offset_right = -20
+	version.offset_bottom = -12
+	add_child(version)
+
 	_crear_ajustes()
 
 
