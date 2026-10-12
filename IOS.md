@@ -33,6 +33,11 @@ El proyecto ya trae lo necesario para iOS:
 1. Abre `MahjongEnEspanol.xcodeproj` con Xcode.
 2. A la izquierda pulsa el proyecto (ícono azul) → **Signing & Capabilities**:
    marca **Automatically manage signing** y elige tu **Team**.
+   Si sale un aviso amarillo de «conflicting provisioning settings» o un error rojo de
+   `.entitlements`: en **Build Settings** (con **All**), busca «Code Signing Identity» y pon
+   **Apple Development** en Debug y en Release; y busca «Code Signing Entitlements» y deja
+   el valor vacío. (El preset ya usa «Apple Development»; Xcode firma con «Distribution»
+   solo al subir a App Store Connect.)
 3. En el iPhone: **Ajustes → Privacidad y seguridad → Modo de desarrollador** → activar
    (se reinicia). Conéctalo al Mac por cable y acepta «Confiar en esta computadora».
 4. Arriba en Xcode elige tu iPhone como destino y pulsa **▶**. El juego se instala y se abre.
