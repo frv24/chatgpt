@@ -55,7 +55,11 @@ de forma natural en la descripción):
 Antes de usar la línea «Sin anuncios, sin registros y sin conexión a internet», confirma
 que sigue siendo verdad en la versión que publiques.
 
-## App Store (para cuando llegue iOS)
+## App Store (iOS)
+Guía paso a paso en `IOS.md`. Ícono: `assets/icono/icono_ios_1024.png` (1024 × 1024, sin
+transparencia). Capturas: `tienda/capturas_ios/iphone/` (2868 × 1320, iPhone de 6,9") y
+`tienda/capturas_ios/ipad/` (2752 × 2064, iPad de 13").
+
 | Campo | Texto | Caracteres |
 |---|---|---|
 | Nombre | Mahjong en Español | 18 de 30 |

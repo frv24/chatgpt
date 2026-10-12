@@ -7,6 +7,9 @@ extends SceneTree
 ## - assets/icono/icono_redondo_512.png ícono redondeado (ventana del juego)
 ## - assets/icono/pantalla_carga.png    pantalla de carga de 2560 x 1440 (nítida en
 ##                                      cualquier teléfono)
+## - assets/icono/icono_ios_1024.png  ícono de 1024 x 1024 para iOS / App Store: cuadrado y
+##                                      SIN canal de transparencia (Apple lo exige y redondea
+##                                      las esquinas por su cuenta)
 ## assets/icono/icono_512.png se deja CUADRADO: es el que pide Google Play, que redondea
 ## las esquinas por su cuenta.
 
@@ -51,6 +54,10 @@ func _iconos_redondeados() -> void:
 	var pequeno := original.duplicate() as Image
 	pequeno.resize(192, 192, Image.INTERPOLATE_LANCZOS)
 	_redondear(pequeno, 0.22).save_png(_ruta("icono_192.png"))
+	var ios := original.duplicate() as Image
+	ios.resize(1024, 1024, Image.INTERPOLATE_LANCZOS)
+	ios.convert(Image.FORMAT_RGB8)
+	ios.save_png(_ruta("icono_ios_1024.png"))
 	print("Íconos redondeados listos.")
 
 

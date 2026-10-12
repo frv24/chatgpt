@@ -1,14 +1,21 @@
 extends SceneTree
-## Crea las capturas para la tienda (Google Play): juega sola unas partidas, toma fotos
-## y las pone en un marco rosa con una frase. Se ejecuta con pantalla de 1600 x 900:
-##   godot --resolution 1600x900 --script res://herramientas/capturas_tienda.gd
-## Resultado: tienda/capturas/1_... a 6_... (1920 x 1080).
+## Crea las capturas para las tiendas: juega sola unas partidas, toma fotos y las pone
+## en un marco rosa con una frase. Se ejecuta con pantalla (no en modo headless):
+##   godot --script res://herramientas/capturas_tienda.gd
+##       -> Google Play: tienda/capturas/ (1920 x 1080)
+##   godot --script res://herramientas/capturas_tienda.gd -- ancho=2868 alto=1320 carpeta=tienda/capturas_ios/iphone
+##   godot --script res://herramientas/capturas_tienda.gd -- ancho=2752 alto=2064 carpeta=tienda/capturas_ios/ipad
+##       -> App Store: iPhone de 6,9" y iPad de 13" (las medidas que pide Apple)
+## La foto del juego se toma ya al tamaño final, así se ve nítida en cualquier medida.
 
 const ROSA := Color("c2185b")
 const CREMA := Color("fbf3e4")
-const ANCHO := 1920
-const ALTO := 1080
-const CARPETA := "res://tienda/capturas/"
+
+var ANCHO := 1920
+var ALTO := 1080
+var CARPETA := "res://tienda/capturas/"
+## Tamaño de la foto del juego dentro del marco (misma proporción que la captura).
+var _tam_foto := Vector2.ZERO
 
 const FRASES := [
 	["1_menu", "Mahjong americano en español", "Para todas las edades, con tus fichas de tema mexicano"],
@@ -24,6 +31,18 @@ var _fotos := {}
 
 
 func _initialize() -> void:
+	for arg in OS.get_cmdline_user_args():
+		var partes := arg.split("=")
+		match partes[0]:
+			"ancho":
+				ANCHO = int(partes[1])
+			"alto":
+				ALTO = int(partes[1])
+			"carpeta":
+				CARPETA = "res://" + partes[1].trim_suffix("/") + "/"
+	_tam_foto = (Vector2(ANCHO, ALTO) * 0.735).round()
+	DisplayServer.window_set_size(Vector2i(_tam_foto))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CARPETA))
 	var c := ConfigFile.new()
 	c.set_value("partida", "nivel", "facil")
 	c.set_value("partida", "tutorial_hecho", true)
@@ -165,19 +184,20 @@ func _enmarcar() -> void:
 		var picado := PapelPicado.new()
 		picado.color_fondo = ROSA
 		picado.colores = PapelPicado.COLORES.filter(func(c): return c != ROSA) + [CREMA]
-		picado.size = Vector2(ANCHO / 1.2, 58)
-		picado.scale = Vector2(1.2, 1.2)
-		picado.position = Vector2(0, -8)
+		var escala := ALTO / 900.0
+		picado.size = Vector2(ANCHO / escala, 58)
+		picado.scale = Vector2(escala, escala)
+		picado.position = Vector2(0, -8 * escala)
 		vista.add_child(picado)
 
-		var titulo := _texto(frase[1], 66, CREMA)
-		titulo.position.y = 70
+		var titulo := _texto(frase[1], roundi(ALTO * 0.061), CREMA)
+		titulo.position.y = ALTO * 0.065
 		vista.add_child(titulo)
-		var subtitulo := _texto(frase[2], 34, Color("f8bbd0"))
-		subtitulo.position.y = 160
+		var subtitulo := _texto(frase[2], roundi(ALTO * 0.031), Color("f8bbd0"))
+		subtitulo.position.y = ALTO * 0.148
 		vista.add_child(subtitulo)
 
-		var tam := Vector2(1440, 810) * 0.98
+		var tam := _tam_foto
 		var marco := Panel.new()
 		var estilo := StyleBoxFlat.new()
 		estilo.bg_color = CREMA
@@ -186,7 +206,7 @@ func _enmarcar() -> void:
 		estilo.shadow_size = 18
 		marco.add_theme_stylebox_override("panel", estilo)
 		marco.size = tam + Vector2(20, 20)
-		marco.position = Vector2((ANCHO - marco.size.x) / 2, ALTO - marco.size.y - 22)
+		marco.position = Vector2((ANCHO - marco.size.x) / 2, ALTO - marco.size.y - ALTO * 0.02)
 		vista.add_child(marco)
 		var foto := TextureRect.new()
 		foto.texture = ImageTexture.create_from_image(_fotos[frase[0]])

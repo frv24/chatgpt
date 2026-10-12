@@ -150,4 +150,4 @@ así que **no se debe copiar en la app**. Las manos de `tarjeta.gd` son inventad
       botón «atrás», zona segura y `export_presets.cfg`
 - [ ] Probar en un teléfono y publicar en Google Play (guía en `ANDROID.md`,
       textos e imágenes de la tienda en `tienda/`)
-- [ ] iOS
+- [ ] iOS (todo preparado: preset, ícono y capturas; guía en `IOS.md`)
