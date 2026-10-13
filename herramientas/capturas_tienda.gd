@@ -5,7 +5,8 @@ extends SceneTree
 ##       -> Google Play: tienda/capturas/ (1920 x 1080)
 ##   godot --script res://herramientas/capturas_tienda.gd -- ancho=2868 alto=1320 carpeta=tienda/capturas_ios/iphone
 ##   godot --script res://herramientas/capturas_tienda.gd -- ancho=2752 alto=2064 carpeta=tienda/capturas_ios/ipad
-##       -> App Store: iPhone de 6,9" y iPad de 13" (las medidas que pide Apple)
+##   godot --script res://herramientas/capturas_tienda.gd -- ancho=2622 alto=1206 carpeta=tienda/capturas_ios/iphone_6_3
+##       -> App Store: iPhone de 6,9", iPad de 13" e iPhone de 6,3" (las medidas que pide Apple)
 ## La foto del juego se toma ya al tamaño final, así se ve nítida en cualquier medida.
 
 const ROSA := Color("c2185b")
@@ -218,7 +219,10 @@ func _enmarcar() -> void:
 
 		for i in 3:
 			await process_frame
-		vista.get_texture().get_image().save_png(carpeta.path_join(frase[0] + ".png"))
+		# Sin canal de transparencia: el App Store no acepta capturas con alfa.
+		var imagen := vista.get_texture().get_image()
+		imagen.convert(Image.FORMAT_RGB8)
+		imagen.save_png(carpeta.path_join(frase[0] + ".png"))
 		vista.queue_free()
 		print("Captura lista: ", frase[0])
 

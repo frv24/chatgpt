@@ -58,7 +58,8 @@ que sigue siendo verdad en la versión que publiques.
 ## App Store (iOS)
 Guía paso a paso en `IOS.md`. Ícono: `assets/icono/icono_ios_1024.png` (1024 × 1024, sin
 transparencia). Capturas: `tienda/capturas_ios/iphone/` (2868 × 1320, iPhone de 6,9") y
-`tienda/capturas_ios/ipad/` (2752 × 2064, iPad de 13").
+`tienda/capturas_ios/ipad/` (2752 × 2064, iPad de 13") y `tienda/capturas_ios/iphone_6_3/`
+(2622 × 1206, para la casilla «iPhone con Dynamic Island» de 6,1"/6,3"). Todas sin transparencia.
 
 | Campo | Texto | Caracteres |
 |---|---|---|
