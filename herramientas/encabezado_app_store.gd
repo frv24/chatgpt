@@ -1,17 +1,26 @@
 extends SceneTree
-## Crea el «encabezado» de la página del App Store (3840 x 1646): fondo rosa, papel
-## picado, el nombre del juego y un abanico de fichas. Se ejecuta con pantalla:
+## Crea las imágenes de la página del App Store: fondo rosa, papel picado, el nombre del
+## juego y un abanico de fichas. Se ejecuta con pantalla:
 ##   godot --script res://herramientas/encabezado_app_store.gd
-## Resultado: tienda/encabezado_app_store_3840x1646.png (sin transparencia).
+##       -> tienda/encabezado_app_store_3840x1646.png («Encabezado»)
+##   godot --script res://herramientas/encabezado_app_store.gd -- alto=2560
+##       -> tienda/resultados_busqueda_app_store_3840x2560.png («Resultados de la búsqueda»)
+## Sin transparencia, como pide Apple.
 
 const ROSA := Color("c2185b")
 const CREMA := Color("fbf3e4")
 const ANCHO := 3840
-const ALTO := 1646
+var ALTO := 1646
+## Cuánto se baja todo para que quede centrado si la imagen es más alta.
+var _bajar := 0.0
 const FICHAS := ["bam2", "car5", "dR", "comodin", "dV", "cir8", "flor"]
 
 
 func _initialize() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("alto="):
+			ALTO = int(arg.split("=")[1])
+	_bajar = (ALTO - 1646) / 2.0
 	_crear()
 
 
@@ -41,18 +50,18 @@ func _crear() -> void:
 	titulo.add_theme_font_size_override("font_size", 250)
 	titulo.add_theme_color_override("font_color", CREMA)
 	titulo.add_theme_constant_override("line_spacing", -30)
-	titulo.position = Vector2(560, 470)
+	titulo.position = Vector2(560, 470 + _bajar)
 	vista.add_child(titulo)
 	var subtitulo := Label.new()
 	subtitulo.text = "Aprende y juega"
 	subtitulo.add_theme_font_size_override("font_size", 120)
 	subtitulo.add_theme_color_override("font_color", Color("f8bbd0"))
-	subtitulo.position = Vector2(570, 1150)
+	subtitulo.position = Vector2(570, 1150 + _bajar)
 	vista.add_child(subtitulo)
 
 	# Abanico de fichas a la derecha.
 	var radio := 1100.0
-	var centro := Vector2(2880, 430 + 352 * 1.3 + radio)
+	var centro := Vector2(2880, 430 + _bajar + 352 * 1.3 + radio)
 	for i in FICHAS.size():
 		var textura: Texture2D = load("res://assets/fichas/%s.png" % FICHAS[i])
 		var tam := textura.get_size() * 1.3
@@ -70,6 +79,7 @@ func _crear() -> void:
 		await process_frame
 	var imagen := vista.get_texture().get_image()
 	imagen.convert(Image.FORMAT_RGB8)
-	imagen.save_png(ProjectSettings.globalize_path("res://tienda/encabezado_app_store_3840x1646.png"))
+	var nombre := "encabezado_app_store" if ALTO == 1646 else "resultados_busqueda_app_store"
+	imagen.save_png(ProjectSettings.globalize_path("res://tienda/%s_%dx%d.png" % [nombre, ANCHO, ALTO]))
 	print("Encabezado listo.")
 	quit()
