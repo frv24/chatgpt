@@ -116,6 +116,7 @@ scripts/ui/              Todo lo que se ve en pantalla
   celebracion.gd         El confeti y el letrero de ¡Mahjong!
 tests/test_logica.gd     Pruebas automáticas de las reglas
 herramientas/            Genera el ícono, la pantalla de carga y las capturas de la tienda (no va en la app)
+marketing/               Kit de redes sociales, kit de prensa y textos para anuncios
 ```
 
 La lógica está separada de los gráficos a propósito. Así puedes cambiar el aspecto

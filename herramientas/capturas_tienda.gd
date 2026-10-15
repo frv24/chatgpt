@@ -15,6 +15,8 @@ const CREMA := Color("fbf3e4")
 var ANCHO := 1920
 var ALTO := 1080
 var CARPETA := "res://tienda/capturas/"
+## Si se indica (crudas=carpeta), también guarda las fotos del juego sin marco.
+var CRUDAS := ""
 ## Tamaño de la foto del juego dentro del marco (misma proporción que la captura).
 var _tam_foto := Vector2.ZERO
 
@@ -41,6 +43,8 @@ func _initialize() -> void:
 				ALTO = int(partes[1])
 			"carpeta":
 				CARPETA = "res://" + partes[1].trim_suffix("/") + "/"
+			"crudas":
+				CRUDAS = ProjectSettings.globalize_path("res://" + partes[1])
 	_tam_foto = (Vector2(ANCHO, ALTO) * 0.735).round()
 	DisplayServer.window_set_size(Vector2i(_tam_foto))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CARPETA))
@@ -168,6 +172,12 @@ func _jugar() -> void:
 func _enmarcar() -> void:
 	main.visible = false
 	main.queue_free()
+	if CRUDAS != "":
+		DirAccess.make_dir_recursive_absolute(CRUDAS)
+		for nombre in _fotos:
+			var cruda: Image = _fotos[nombre].duplicate()
+			cruda.convert(Image.FORMAT_RGB8)
+			cruda.save_png(CRUDAS.path_join(nombre + ".png"))
 	var carpeta := ProjectSettings.globalize_path(CARPETA)
 	for archivo in DirAccess.get_files_at(carpeta):
 		if archivo.ends_with(".png"):
