@@ -45,10 +45,14 @@ Lunes, miércoles y viernes publicación; los demás días, historias.
 ### Semana 1 · Lanzamiento (20 al 26 de octubre)
 
 **Lunes 20 · `post_1_lanzamiento` + `historia_1_lanzamiento`**
-> 🀄 ¡Ya está aquí Mahjong en Español!
-> Siempre quise que más gente pudiera aprender Mahjong americano en nuestro idioma, así que hice esta app: un tutorial paso a paso, lecciones con el porqué de cada regla y partidas contra 3 rivales.
+> 👀 ¿No dejas de ver estas fichitas por todos lados? ¿Quieres aprender fácil? ¡Tenemos la respuesta! 🀄
+>
+> ¡Ya está aquí Mahjong en Español! Un tutorial y juego paso a paso, lecciones con el porqué de cada regla y partidas contra 3 rivales.
+>
 > Y las fichas tienen diseño mexicano: nopales, chiles, magueyes y flores de cempasúchil 🌼
+>
 > Gratis, sin anuncios y sin registros. Descárgalo: link en mi perfil 📲
+>
 > #MahjongEnEspañol #Mahjong #MahjongAmericano #AprendeMahjong #JuegosDeMesa #HechoEnMéxico #DiseñoMexicano
 
 **Miércoles 22 · `post_2_fichas`**
