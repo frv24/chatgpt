@@ -38,10 +38,14 @@ El proyecto ya trae lo necesario para iOS:
    **Apple Development** en Debug y en Release; y busca «Code Signing Entitlements» y deja
    el valor vacío. (El preset ya usa «Apple Development»; Xcode firma con «Distribution»
    solo al subir a App Store Connect.)
+   **Idioma:** en **Build Settings** busca «Localization native development region» (o
+   «Development Language») y ponlo en **Spanish (es)**; y en la pestaña **Info**, en
+   «Localization native development region», elige **Spanish**. Así el App Store muestra
+   «Idioma: Español» y no «EN». (El preset ya agrega `CFBundleLocalizations = es`.)
 3. En el iPhone: **Ajustes → Privacidad y seguridad → Modo de desarrollador** → activar
    (se reinicia). Conéctalo al Mac por cable y acepta «Confiar en esta computadora».
 4. Arriba en Xcode elige tu iPhone como destino y pulsa **▶**. El juego se instala y se abre.
-5. Revisa que el menú diga la versión correcta (por ejemplo «Versión 1.0.1»).
+5. Revisa que el menú diga la versión correcta (por ejemplo «Versión 1.0.2»).
 
 ## Paso 5. Crear la app en App Store Connect
 En https://appstoreconnect.apple.com → **Apps → + → Nueva app**:

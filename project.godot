@@ -6,8 +6,11 @@ config_version=5
 [application]
 
 config/name="Mahjong en Español"
+config/name_localized={
+"es": "Mahjong en Español"
+}
 config/description="Aprende Mahjong paso a paso, juega partidas y domina sus reglas en español."
-config/version="1.0.1"
+config/version="1.0.2"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://assets/icono/icono_redondo_512.png"
@@ -28,6 +31,10 @@ window/handheld/orientation=4
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[internationalization]
+
+locale/fallback="es"
 
 [rendering]
 
